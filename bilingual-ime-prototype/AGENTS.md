@@ -10,6 +10,8 @@ For the bilingual IME prototype, candidate options are bilingual subtitle pairs:
 
 Keep the note and input regions in stable vertical positions while the user types; changing the candidate count must not reflow the page.
 
+Primary input is always Simplified Chinese and is displayed as a non-interactive, read-only field rather than a disabled combobox. Only the secondary translation language is selectable: English or Japanese.
+
 Keep the note surface visually quiet: omit the breadcrumb, note status/line metadata, overflow menu, paper date/section labels, and input eyebrow. Use Chinese input with Chinese candidate text above its English translation; do not offer an English-to-Chinese mode switch.
 
 Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts/prepare-sites-build.mjs`, and `tests/sites-worker.test.mjs` intact so the same local prototype can be handed to Sites. Before a Sites handoff, run `npm run build` and `npm run test:sites`; the build must leave `dist/client/index.html`, `dist/server/index.js`, and `dist/.openai/hosting.json`.

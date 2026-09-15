@@ -13,8 +13,7 @@ const candidates = [
 
 const MIN_WIDTH = 800;
 const MIN_HEIGHT = 450;
-const languages = [
-  { id: "zh", label: "简体中文" },
+const secondaryLanguages = [
   { id: "en", label: "English" },
   { id: "ja", label: "日本語" },
 ];
@@ -25,9 +24,8 @@ export function App() {
   const [lines, setLines] = useState([{ zh: "我爱你", en: "I love you", ja: "愛してる" }]);
   const [windowSize, setWindowSize] = useState({ width: 978, height: 520 });
   const [resizing, setResizing] = useState(false);
-  const [primaryLanguage, setPrimaryLanguage] = useState("zh");
   const [secondaryLanguage, setSecondaryLanguage] = useState("en");
-  const [openMenu, setOpenMenu] = useState(null);
+  const [isSecondaryMenuOpen, setIsSecondaryMenuOpen] = useState(false);
   const inputRef = useRef(null);
   const resizeStart = useRef(null);
 
@@ -72,48 +70,44 @@ export function App() {
     setResizing(true);
   }
 
-  function selectLanguage(slot, languageId) {
-    if (slot === "primary") setPrimaryLanguage(languageId);
-    else setSecondaryLanguage(languageId);
-    setOpenMenu(null);
+  function selectSecondaryLanguage(languageId) {
+    setSecondaryLanguage(languageId);
+    setIsSecondaryMenuOpen(false);
   }
 
   function translationPair(item) {
     return {
-      primary: item[primaryLanguage] ?? item.zh,
+      primary: item.zh,
       secondary: item[secondaryLanguage] ?? item.en,
     };
   }
 
-  function languageCombo(slot) {
-    const selectedId = slot === "primary" ? primaryLanguage : secondaryLanguage;
-    const otherId = slot === "primary" ? secondaryLanguage : primaryLanguage;
-    const selectedLanguage = languages.find((language) => language.id === selectedId);
-    const availableLanguages = languages.filter((language) => language.id !== otherId);
+  function secondaryLanguageCombo() {
+    const selectedLanguage = secondaryLanguages.find((language) => language.id === secondaryLanguage);
 
     return (
-      <div className={`language-combo ${slot}-combo`}>
+      <div className="language-combo secondary-combo">
         <button
           className="language-control"
           type="button"
-          aria-label={`${slot === "primary" ? "Primary" : "Secondary"} language: ${selectedLanguage.label}`}
-          aria-expanded={openMenu === slot}
-          onClick={() => setOpenMenu(openMenu === slot ? null : slot)}
+          aria-label={`Secondary language: ${selectedLanguage.label}`}
+          aria-expanded={isSecondaryMenuOpen}
+          onClick={() => setIsSecondaryMenuOpen(!isSecondaryMenuOpen)}
         >
           <span>{selectedLanguage.label}</span><img src="/assets/figma-triangle.svg" alt="" />
         </button>
-        {openMenu === slot && (
-          <div className="language-list" role="listbox" aria-label={`${slot} language choices`}>
-            {availableLanguages.map((language) => (
+        {isSecondaryMenuOpen && (
+          <div className="language-list" role="listbox" aria-label="secondary language choices">
+            {secondaryLanguages.map((language) => (
               <button
-                className={language.id === selectedId ? "language-option selected" : "language-option"}
+                className={language.id === secondaryLanguage ? "language-option selected" : "language-option"}
                 key={language.id}
                 type="button"
                 role="option"
-                aria-selected={language.id === selectedId}
-                onClick={() => selectLanguage(slot, language.id)}
+                aria-selected={language.id === secondaryLanguage}
+                onClick={() => selectSecondaryLanguage(language.id)}
               >
-                {language.id === selectedId ? <img src="/assets/figma-check.svg" alt="Selected" /> : <span className="check-space" />}
+                {language.id === secondaryLanguage ? <img src="/assets/figma-check.svg" alt="Selected" /> : <span className="check-space" />}
                 <span>{language.label}</span>
               </button>
             ))}
@@ -128,10 +122,10 @@ export function App() {
       <section className="ime-window" style={{ width: windowSize.width, height: windowSize.height }} aria-label="Chinese bilingual input tool">
         <header className="ime-header">
           <div className="header-controls">
-            {languageCombo("primary")}
+            <span className="locked-language" aria-label="Primary language: Simplified Chinese">简体中文</span>
             <span className="field-label primary-label">Primary</span>
             <span className="field-label secondary-label">Secondary</span>
-            {languageCombo("secondary")}
+            {secondaryLanguageCombo()}
           </div>
         </header>
         <section className="writing-area">
