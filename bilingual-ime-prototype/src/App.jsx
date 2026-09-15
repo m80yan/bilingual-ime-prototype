@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { getPinyinCandidates } from "./pinyinEngine";
 
-const candidates = [
-  { pinyin: "wo shi shui", zh: "我是谁？", en: "Who am I?", ja: "私は誰ですか？" },
-  { pinyin: "wo shi shui", zh: "我是谁", en: "Who am I", ja: "私は誰？" },
-  { pinyin: "wo shi shui", zh: "我是什么人？", en: "What kind of person am I?", ja: "私はどんな人ですか？" },
-  { pinyin: "wo xiang yi xiang", zh: "我想一想。", en: "Let me think about it.", ja: "少し考えさせて。" },
-  { pinyin: "jin tian hen mang", zh: "今天很忙。", en: "I’m busy today.", ja: "今日は忙しいです。" },
-  { pinyin: "tai hao le", zh: "太好了！", en: "That’s wonderful!", ja: "すばらしい！" },
-  { pinyin: "xue xi ying yu", zh: "学习英语", en: "Study English", ja: "英語を勉強する" },
-  { pinyin: "bei dan ci", zh: "背单词", en: "Learn vocabulary", ja: "単語を覚える" },
-];
+const localTranslations = {
+  "我": { en: "I; me", ja: "私" }, "你": { en: "you", ja: "あなた" }, "他": { en: "he; him", ja: "彼" },
+  "我们": { en: "we; us", ja: "私たち" }, "你们": { en: "you all", ja: "あなたたち" }, "你好": { en: "Hello", ja: "こんにちは" },
+  "谢谢": { en: "Thank you", ja: "ありがとう" }, "再见": { en: "Goodbye", ja: "さようなら" }, "是": { en: "is; are", ja: "です" },
+  "不是": { en: "is not", ja: "ではありません" }, "好": { en: "good", ja: "良い" }, "喜欢": { en: "like", ja: "好き" },
+  "中国": { en: "China", ja: "中国" }, "中文": { en: "Chinese", ja: "中国語" }, "英语": { en: "English", ja: "英語" },
+  "我爱你": { en: "I love you", ja: "愛してる" }, "我是谁": { en: "Who am I?", ja: "私は誰？" },
+  "今天": { en: "today", ja: "今日" }, "太好了": { en: "That’s wonderful!", ja: "すばらしい！" },
+};
 
 const MIN_WIDTH = 800;
 const MIN_HEIGHT = 450;
@@ -22,6 +22,7 @@ export function App() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
   const [lines, setLines] = useState([{ zh: "我爱你", en: "I love you", ja: "愛してる" }]);
+  const [translations, setTranslations] = useState({});
   const [windowSize, setWindowSize] = useState({ width: 978, height: 520 });
   const [resizing, setResizing] = useState(false);
   const [secondaryLanguage, setSecondaryLanguage] = useState("en");
@@ -29,14 +30,53 @@ export function App() {
   const inputRef = useRef(null);
   const resizeStart = useRef(null);
 
+  function translationFor(zh, language) {
+    return translations[`${language}:${zh}`]
+      ?? localTranslations[zh]?.[language]
+      ?? (language === "en" ? "Translating…" : "翻訳中…");
+  }
+
   const visibleCandidates = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    if (!normalized) return candidates.slice(0, 5);
-    const matches = candidates.filter((item) => item.pinyin.includes(normalized) || item.zh.includes(normalized));
-    return matches.length ? matches.slice(0, 5) : [{ pinyin: query, zh: query, en: "Translation will appear here", ja: "翻訳がここに表示されます" }];
-  }, [query]);
+    const matches = getPinyinCandidates(query);
+    return matches.map((zh) => ({
+      zh,
+      en: translationFor(zh, "en"),
+      ja: translationFor(zh, "ja"),
+    }));
+  }, [query, translations]);
 
   useEffect(() => setSelected(0), [query]);
+
+  useEffect(() => {
+    const pending = visibleCandidates
+      .map((candidate) => candidate.zh)
+      .filter((zh) => !localTranslations[zh]?.[secondaryLanguage] && !translations[`${secondaryLanguage}:${zh}`]);
+
+    if (!pending.length) return undefined;
+
+    const controller = new AbortController();
+    const delay = window.setTimeout(async () => {
+      try {
+        const response = await fetch("/api/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ texts: pending, targetLanguage: secondaryLanguage }),
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const { translations: results } = await response.json();
+        if (!results) return;
+        setTranslations((current) => ({
+          ...current,
+          ...Object.fromEntries(Object.entries(results).map(([zh, translation]) => [`${secondaryLanguage}:${zh}`, translation])),
+        }));
+      } catch (error) {
+        if (error.name !== "AbortError") console.warn("Translation service is unavailable.");
+      }
+    }, 180);
+
+    return () => { window.clearTimeout(delay); controller.abort(); };
+  }, [visibleCandidates, secondaryLanguage, translations]);
 
   useEffect(() => {
     function resize(event) {
