@@ -17,10 +17,12 @@ button { color: inherit; }
 .field-label { position: absolute; left: 126px; color: #777; font-size: 12px; font-weight: 700; line-height: 28px; }
 .primary-label { top: 8px; }.secondary-label { top: 48px; }
 .writing-area { position: relative; min-height: 0; overflow: hidden; background: #fff; }
-.written-lines { position: absolute; top: 16px; left: 15px; display: grid; gap: 5px; }
+.composition-editor { position: absolute; inset: 16px 15px; display: flex; flex-direction: column; align-items: stretch; min-height: 0; overflow: auto; padding-bottom: 16px; }
+.written-lines { display: grid; gap: 5px; }
 .written-lines p { display: grid; gap: 2px; margin: 0; font-size: 12px; line-height: 14px; }.written-lines strong { font-weight: 700; }.written-lines span { font-weight: 700; }
-.typing-line { position: absolute; top: 68px; left: 15px; right: 15px; height: 28px; }.typing-line input { width: 100%; height: 28px; border: 0; outline: 0; padding: 0; color: #222; font-size: 12px; font-weight: 700; }.typing-line input::placeholder { color: #aaa; font-weight: 400; }
-.candidate-picker { position: absolute; top: 101px; left: 15px; z-index: 1; width: 215px; max-height: 171px; overflow-y: auto; border: 1px solid #aaa; background: #fff; box-shadow: 0 8px 16px rgb(0 0 0 / 25%); }
+.typing-line { flex: 0 0 28px; height: 28px; margin-top: 8px; }.typing-line input { width: 100%; height: 28px; border: 0; outline: 0; padding: 0; color: #222; font-size: 12px; font-weight: 700; }.typing-line input::placeholder { color: #aaa; font-weight: 400; }
+.candidate-picker { position: relative; z-index: 1; flex: 0 0 auto; width: 215px; max-height: 171px; overflow-y: auto; border: 1px solid #aaa; background: #fff; box-shadow: 0 8px 16px rgb(0 0 0 / 25%); }
+.candidate-picker:empty { display: none; }
 .candidate { display: grid; grid-template-columns: 25px 1fr; align-items: start; width: 100%; min-height: 30px; padding: 4px 8px; border: 0; border-left: 1px solid transparent; background: #fff; text-align: left; cursor: pointer; }.candidate:hover { background: rgb(81 147 251 / 12%); }.candidate.selected { border-left-color: #5193fb; background: rgb(81 147 251 / 25%); }.candidate b { color: #5193fb; font-size: 24px; line-height: 22px; }.candidate span { display: grid; gap: 1px; padding-top: 1px; }.candidate strong, .candidate em { font-size: 12px; line-height: 14px; }.candidate strong { font-style: normal; }.candidate em { font-style: normal; }
 .ime-footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 0 4px 0 12px; background: #fafafa; color: #777; font-size: 12px; }.resize-handle { display: grid; place-items: center; width: 13px; height: 13px; padding: 0; border: 0; background: transparent; cursor: nwse-resize; touch-action: none; }.resize-grip { display: grid; gap: 2px; width: 13px; height: 13px; }.resize-grip-row { display: flex; justify-content: flex-end; gap: 2px; height: 3px; }.resize-grip img { width: 3px; height: 3px; }.resize-handle.active { cursor: nwse-resize; }
 @media (max-width: 1112px) { .input-stage { place-items: start center; padding: 24px; } }

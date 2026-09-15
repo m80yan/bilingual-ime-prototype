@@ -100,7 +100,7 @@ export function App() {
   function handleKeyDown(event) {
     if (event.key === "ArrowDown") { event.preventDefault(); setSelected((current) => (current + 1) % visibleCandidates.length); }
     else if (event.key === "ArrowUp") { event.preventDefault(); setSelected((current) => (current - 1 + visibleCandidates.length) % visibleCandidates.length); }
-    else if (event.key === "Enter") { event.preventDefault(); commit(); }
+    else if (event.key === "Enter" || event.key === " ") { event.preventDefault(); commit(); }
     else if (/^[1-5]$/.test(event.key) && visibleCandidates[Number(event.key) - 1]) { event.preventDefault(); commit(visibleCandidates[Number(event.key) - 1]); }
   }
 
@@ -169,18 +169,20 @@ export function App() {
           </div>
         </header>
         <section className="writing-area">
-          <div className="written-lines" aria-live="polite">
-            {lines.map((line, index) => {
-              const pair = translationPair(line);
-              return <p key={`${line.zh}-${index}`}><strong>{pair.primary}</strong><span>{pair.secondary}</span></p>;
-            })}
-          </div>
-          <div className="typing-line"><input ref={inputRef} value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={handleKeyDown} placeholder="输入拼音…" aria-label="输入拼音" autoComplete="off" /></div>
-          <div className="candidate-picker" role="listbox" aria-label="双语候选">
-            {visibleCandidates.map((candidate, index) => {
-              const pair = translationPair(candidate);
-              return <button key={`${candidate.zh}-${index}`} className={selected === index ? "candidate selected" : "candidate"} role="option" aria-selected={selected === index} onMouseEnter={() => setSelected(index)} onClick={() => commit(candidate)}><b>{index + 1}.</b><span><strong>{pair.primary}</strong><em>{pair.secondary}</em></span></button>;
-            })}
+          <div className="composition-editor">
+            <div className="written-lines" aria-live="polite">
+              {lines.map((line, index) => {
+                const pair = translationPair(line);
+                return <p key={`${line.zh}-${index}`}><strong>{pair.primary}</strong><span>{pair.secondary}</span></p>;
+              })}
+            </div>
+            <div className="typing-line"><input ref={inputRef} value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={handleKeyDown} placeholder="输入拼音…" aria-label="输入拼音" autoComplete="off" /></div>
+            <div className="candidate-picker" role="listbox" aria-label="双语候选">
+              {visibleCandidates.map((candidate, index) => {
+                const pair = translationPair(candidate);
+                return <button key={`${candidate.zh}-${index}`} className={selected === index ? "candidate selected" : "candidate"} role="option" aria-selected={selected === index} onMouseEnter={() => setSelected(index)} onClick={() => commit(candidate)}><b>{index + 1}.</b><span><strong>{pair.primary}</strong><em>{pair.secondary}</em></span></button>;
+              })}
+            </div>
           </div>
         </section>
         <footer className="ime-footer"><span>English translation below</span><button className={resizing ? "resize-handle active" : "resize-handle"} onPointerDown={startResize} aria-label="Drag to resize window"><span className="resize-grip" aria-hidden="true">{[1, 2, 3].map((count) => <span className="resize-grip-row" key={count}>{Array.from({ length: count }, (_, index) => <img key={index} src={resizing ? "/assets/figma-drag-handle-pressed.svg" : "/assets/figma-drag-handle-default.svg"} alt="" />)}</span>)}</span></button></footer>
