@@ -43,7 +43,8 @@ export default async function handler(request, response) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "gpt-4.1-mini",
+      model: "gpt-5-nano",
+      reasoning: { effort: "none" },
       input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }],
       temperature: 0.2,
       max_output_tokens: 180,
