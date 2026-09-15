@@ -50,7 +50,11 @@ export default async function handler(request, response) {
     }),
   });
 
-  if (!openaiResponse.ok) return json(response, { error: "Translation service is unavailable" }, 502);
+  if (!openaiResponse.ok) {
+    const detail = await openaiResponse.text();
+    console.error("OpenAI translation request failed", openaiResponse.status, detail);
+    return json(response, { error: "Translation service is unavailable" }, 502);
+  }
 
   const data = await openaiResponse.json();
   try {
@@ -61,6 +65,7 @@ export default async function handler(request, response) {
       .map((text) => [text, result[text].trim()]));
     return json(response, { translations });
   } catch {
+    console.error("OpenAI translation response could not be read", data.output_text);
     return json(response, { error: "Translation response could not be read" }, 502);
   }
 }
