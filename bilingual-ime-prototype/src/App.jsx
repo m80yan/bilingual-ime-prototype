@@ -48,14 +48,13 @@ export function App() {
   useEffect(() => setSelected(0), [query]);
 
   useEffect(() => {
-    const pending = visibleCandidates
-      .map((candidate) => candidate.zh)
+    const pending = getPinyinCandidates(query)
       .filter((zh) => !localTranslations[zh]?.[secondaryLanguage] && !translations[`${secondaryLanguage}:${zh}`]);
 
     if (!pending.length) return undefined;
 
     const controller = new AbortController();
-    const delay = window.setTimeout(async () => {
+    async function translateCandidates() {
       try {
         const response = await fetch("/api/translate", {
           method: "POST",
@@ -73,10 +72,12 @@ export function App() {
       } catch (error) {
         if (error.name !== "AbortError") console.warn("Translation service is unavailable.");
       }
-    }, 180);
+    }
 
-    return () => { window.clearTimeout(delay); controller.abort(); };
-  }, [visibleCandidates, secondaryLanguage, translations]);
+    translateCandidates();
+
+    return () => controller.abort();
+  }, [query, secondaryLanguage]);
 
   useEffect(() => {
     function resize(event) {
