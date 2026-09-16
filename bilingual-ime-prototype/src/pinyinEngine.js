@@ -1,6 +1,7 @@
 import { dict } from "./vendor/web-pinyin-ime/google_pinyin_dict_utf8_55320";
 
 const keys = Object.keys(dict);
+const syllableKeys = new Set(keys.filter((key) => key.length <= 6 && dict[key]?.some((item) => item.w.length === 1)));
 const shortcutCandidates = {
   szm: ["首字母", "是怎么", "说这么", "上周末", "说怎么"],
   jintwoxiangshuoyijianshi: ["今天我想说一件事"],
@@ -39,6 +40,64 @@ function segmentedCandidates(input, limit) {
   return bestFrom(0).map((path) => path.text).filter(Boolean).slice(0, limit);
 }
 
+function splitIntoSyllables(input) {
+  const memo = new Map();
+
+  function splitFrom(index) {
+    if (index === input.length) return [[]];
+    if (memo.has(index)) return memo.get(index);
+
+    const paths = [];
+    for (let end = Math.min(input.length, index + 6); end > index; end -= 1) {
+      const syllable = input.slice(index, end);
+      if (!syllableKeys.has(syllable)) continue;
+      splitFrom(end).forEach((tail) => paths.push([syllable, ...tail]));
+    }
+    memo.set(index, paths.slice(0, 8));
+    return memo.get(index);
+  }
+
+  return splitFrom(0)[0] ?? [];
+}
+
+function mixedInputPattern(input) {
+  const memo = new Map();
+
+  function splitFrom(index) {
+    if (index === input.length) return [[]];
+    if (memo.has(index)) return memo.get(index);
+
+    const paths = [];
+    for (let end = Math.min(input.length, index + 6); end > index + 1; end -= 1) {
+      const syllable = input.slice(index, end);
+      if (!syllableKeys.has(syllable)) continue;
+      splitFrom(end).forEach((tail) => paths.push([syllable, ...tail]));
+    }
+    splitFrom(index + 1).forEach((tail) => paths.push([input[index], ...tail]));
+    memo.set(index, paths.slice(0, 16));
+    return memo.get(index);
+  }
+
+  return splitFrom(0).find((parts) => parts[0]?.length > 1 && parts.some((part) => part.length === 1));
+}
+
+function mixedCandidates(input, limit) {
+  const pattern = mixedInputPattern(input);
+  if (!pattern) return [];
+
+  const matches = keys
+    .filter((key) => key.startsWith(pattern[0]))
+    .flatMap((key) => {
+      const syllables = splitIntoSyllables(key);
+      if (syllables.length !== pattern.length || !pattern.every((part, index) => syllables[index].startsWith(part))) return [];
+      return dict[key];
+    })
+    .sort((left, right) => right.f - left.f)
+    .map((item) => item.w);
+
+  return unique(matches, limit);
+}
+
 export function getPinyinCandidates(value, limit = 25) {
   const spacedInput = value.toLowerCase().trim().replace(/\s+/g, " ");
   const input = value.toLowerCase().replace(/[^a-z]/g, "");
@@ -57,5 +116,5 @@ export function getPinyinCandidates(value, limit = 25) {
     limit,
   );
 
-  return unique([...shortcut, ...direct, ...segmentedCandidates(input, limit)], limit);
+  return unique([...shortcut, ...mixedCandidates(input, limit), ...direct, ...segmentedCandidates(input, limit)], limit);
 }

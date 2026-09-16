@@ -9,7 +9,7 @@ As a Notion embed visitor, I want pinyin candidates to commit into one editable 
 Acceptance criteria:
 
 - Pinyin input shows Chinese candidates for Latin-letter queries.
-- Common shortcut input can show first-letter or mixed full-pinyin/initial candidates, such as `szm` -> `首字母` and `jin t wo xiang shuo yi jian shi` -> `今天我想说一件事`.
+- Common shortcut input can show first-letter or mixed full-pinyin/initial candidates, such as `szm` -> `首字母` and `yingxl` -> `影响力`.
 - Pressing `1`-`7` commits the corresponding visible candidate.
 - `-` and `=` page through candidate pages when more than seven candidates are available.
 - Candidate results include a pure-English option for the typed Latin input.

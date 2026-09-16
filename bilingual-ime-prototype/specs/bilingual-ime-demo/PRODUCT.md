@@ -52,7 +52,7 @@ Figma references were provided during earlier implementation for the window stru
 
 10. While the user is composing pinyin, the pinyin composition text appears after the current Chinese text rather than in a separate permanent field.
 
-10a. The candidate engine should support common pinyin shortcuts where practical, including first-letter abbreviation candidates and selected long mixed full-pinyin/initial patterns. For example, `szm` may surface `首字母`, and `jin t wo xiang shuo yi jian shi` may surface `今天我想说一件事`.
+10a. The candidate engine should support common pinyin shortcuts where practical, including first-letter abbreviation candidates and mixed full-pinyin/initial input. For example, `szm` may surface `首字母`, and `yingxl` may surface `影响力` by matching `ying` + `x` + `l`.
 
 11. While the editor contains Latin-letter pinyin composition, the candidate picker shows up to seven Chinese candidate options.
 
