@@ -1,6 +1,16 @@
 import { dict } from "./vendor/web-pinyin-ime/google_pinyin_dict_utf8_55320";
 
 const keys = Object.keys(dict);
+const shortcutCandidates = {
+  szm: ["首字母", "是怎么", "说这么", "上周末", "说怎么"],
+  jintwoxiangshuoyijianshi: ["今天我想说一件事"],
+  jtwxsyjs: ["今天我想说一件事"],
+};
+
+function unique(items, limit) {
+  return [...new Set(items.filter(Boolean))].slice(0, limit);
+}
+
 function segmentedCandidates(input, limit) {
   const memo = new Map();
 
@@ -30,19 +40,22 @@ function segmentedCandidates(input, limit) {
 }
 
 export function getPinyinCandidates(value, limit = 25) {
+  const spacedInput = value.toLowerCase().trim().replace(/\s+/g, " ");
   const input = value.toLowerCase().replace(/[^a-z]/g, "");
   if (!input) return [];
 
+  const shortcut = shortcutCandidates[input] ?? shortcutCandidates[spacedInput.replace(/[^a-z]/g, "")] ?? [];
   const matches = dict[input]
     ? dict[input]
     : keys.filter((key) => key.startsWith(input)).flatMap((key) => dict[key]);
 
-  const direct = [...new Set(
+  const direct = unique(
     matches
       .filter(Boolean)
       .sort((left, right) => right.f - left.f)
       .map((item) => item.w),
-  )].slice(0, limit);
+    limit,
+  );
 
-  return direct.length ? direct : segmentedCandidates(input, limit);
+  return unique([...shortcut, ...direct, ...segmentedCandidates(input, limit)], limit);
 }

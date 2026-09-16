@@ -52,7 +52,9 @@ Figma references were provided during earlier implementation for the window stru
 
 10. While the user is composing pinyin, the pinyin composition text appears after the current Chinese text rather than in a separate permanent field.
 
-11. While the editor contains Latin-letter pinyin composition, the candidate picker shows up to five Chinese candidate options.
+10a. The candidate engine should support common pinyin shortcuts where practical, including first-letter abbreviation candidates and selected long mixed full-pinyin/initial patterns. For example, `szm` may surface `首字母`, and `jin t wo xiang shuo yi jian shi` may surface `今天我想说一件事`.
+
+11. While the editor contains Latin-letter pinyin composition, the candidate picker shows up to seven Chinese candidate options.
 
 12. Each candidate option is displayed as a bilingual subtitle pair:
    - First line: Chinese candidate text.
@@ -72,7 +74,7 @@ Figma references were provided during earlier implementation for the window stru
 
 18. Committed candidates insert at the current cursor or replace the current selection in the active Chinese line. They do not create a new visual line or a separate note item for each word unless the user explicitly creates a new bilingual line group.
 
-19. Each written Chinese sentence or line is displayed as one bilingual pair: Chinese on the first line, translation directly below. Multiple Chinese lines must not stack above a single shared translation line.
+19. Each written Chinese sentence or line is displayed as one bilingual pair: Chinese on the first line, translation directly below. Multiple Chinese lines must not stack above a single shared translation line. A user-created Enter line break is a soft text-area line break and must stay compact; it must not reuse the large visual group spacing reserved for separate bilingual groups.
 
 20. Backspace behaves like a text editor:
    - If the pinyin query contains characters, Backspace edits the query normally.
@@ -99,7 +101,7 @@ Figma references were provided during earlier implementation for the window stru
 
 25. Every committed Chinese modification first shows a long horizontal shimmer in the secondary-language line, then replaces the shimmer with the latest translation once it is available. The shimmer is rectangular with square ends, not a pill.
 
-25a. When the latest translation appears, the secondary-language text uses a decode-style typing reveal: characters briefly cycle through alternate symbols before settling into the final translation.
+25a. When the latest translation appears, the secondary-language text uses a typing reveal. The newest currently-typing character uses the same blue as the editor caret, `#5193FB`, then fades into normal black text as later characters appear.
 
 25b. Once a Chinese sentence segment ends with sentence-final punctuation such as `。`, `！`, or `？`, the matching secondary-language segment is considered settled even if the user continues typing on the same line. Later text after that punctuation must shimmer/reveal independently without replaying the settled segment, unless the settled Chinese segment itself is edited.
 

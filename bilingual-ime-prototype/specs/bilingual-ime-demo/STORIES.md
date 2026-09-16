@@ -9,8 +9,9 @@ As a Notion embed visitor, I want pinyin candidates to commit into one editable 
 Acceptance criteria:
 
 - Pinyin input shows Chinese candidates for Latin-letter queries.
-- Pressing `1`-`5` commits the corresponding visible candidate.
-- `-` and `=` page through candidate pages when more than five candidates are available.
+- Common shortcut input can show first-letter or mixed full-pinyin/initial candidates, such as `szm` -> `首字母` and `jin t wo xiang shuo yi jian shi` -> `今天我想说一件事`.
+- Pressing `1`-`7` commits the corresponding visible candidate.
+- `-` and `=` page through candidate pages when more than seven candidates are available.
 - Candidate results include a pure-English option for the typed Latin input.
 - Pressing Space or Enter commits the selected visible candidate.
 - Committed candidates append to one Chinese draft instead of creating one line per word.
@@ -18,6 +19,7 @@ Acceptance criteria:
 - ASCII punctuation maps to Chinese punctuation and can be committed into the draft.
 - The editor supports native select all, selected-text deletion, cursor movement, line breaks, and one-character deletion for committed Chinese text.
 - Pressing Enter without active pinyin creates a new bilingual line group rather than stacking Chinese lines above one shared translation.
+- Enter-created soft line breaks stay compact and must not inherit the 28 px separate-group spacing.
 - The placeholder says `用英文输入法打出拼音...`.
 - `npm run build` passes.
 - `npm run test:sites` passes.
@@ -47,7 +49,7 @@ Acceptance criteria:
 - The browser never exposes provider API keys.
 - API response updates the committed sentence translation below the Chinese line.
 - Every committed Chinese modification shows a long square-ended horizontal shimmer before the latest secondary-language translation appears.
-- The latest secondary-language translation appears with a decode-style typing reveal.
+- The latest secondary-language translation appears with a typing reveal whose active character uses caret blue `#5193FB`.
 - A settled bilingual line does not replay the typing reveal when the user edits later lines.
 - A sentence segment ending in Chinese sentence-final punctuation does not replay the typing reveal when the user continues typing later text on the same line.
 - Failed API responses leave the Chinese draft intact and keep typing usable.
