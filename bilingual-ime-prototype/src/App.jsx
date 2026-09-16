@@ -271,6 +271,7 @@ export function App() {
     const editorRect = editor.getBoundingClientRect();
     const left = markerRect.right - editorRect.left + editor.scrollLeft;
     const compositionTop = markerRect.top - editorRect.top + editor.scrollTop;
+    const caretTop = compositionTop - 3;
     const candidateTop = markerRect.bottom - editorRect.top + editor.scrollTop + 18;
     const clampedLeft = Math.max(0, Math.min(left, editor.clientWidth - 215));
 
@@ -281,7 +282,7 @@ export function App() {
     });
     setCaretPosition({
       left: Math.max(0, Math.min(left, editor.clientWidth - 2)),
-      top: Math.max(0, compositionTop),
+      top: Math.max(0, caretTop),
     });
     setCandidatePosition({
       left: clampedLeft,
@@ -361,14 +362,25 @@ export function App() {
     else if ((event.key === "Enter" || event.key === " ") && query && pagedCandidates.length) { event.preventDefault(); commit(); }
     else if (event.key === "Enter" && !query) {
       event.preventDefault();
+      const editor = inputRefs.current[activeLine];
+      const currentLine = draftLines[activeLine] ?? "";
+      const start = editor?.selectionStart ?? currentLine.length;
+      const end = editor?.selectionEnd ?? start;
+      const before = currentLine.slice(0, start);
+      const after = currentLine.slice(end);
       setDraftLines((current) => {
         const next = [...current];
-        next.splice(activeLine + 1, 0, "");
+        next[activeLine] = before;
+        next.splice(activeLine + 1, 0, after);
         return next;
       });
       const nextLine = activeLine + 1;
       setActiveLine(nextLine);
-      requestAnimationFrame(() => inputRefs.current[nextLine]?.focus());
+      requestAnimationFrame(() => {
+        inputRefs.current[nextLine]?.focus();
+        inputRefs.current[nextLine]?.setSelectionRange(0, 0);
+        updateCandidatePosition();
+      });
     }
     else if (/^[1-7]$/.test(event.key) && pagedCandidates[Number(event.key) - 1]) { event.preventDefault(); commit(pagedCandidates[Number(event.key) - 1]); }
     else if (punctuationMap[event.key]) { event.preventDefault(); commit(query ? pagedCandidates[selected] : null, punctuationMap[event.key]); }
@@ -525,7 +537,7 @@ export function App() {
                       autoComplete="off"
                       spellCheck="false"
                     />
-                    {isEditorFocused && activeLine === index && !allChineseSelected && <span className="custom-caret" style={caretPosition} />}
+                    {isEditorFocused && activeLine === index && !query && !allChineseSelected && <span className="custom-caret" style={caretPosition} />}
                     {query && activeLine === index && (
                       <span className="pinyin-composition" style={compositionPosition}>
                         {query.slice(0, queryCursor)}
