@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getPinyinCandidates } from "./pinyinEngine";
 import cedictTranslations from "./data/cedict-en.json";
 
@@ -98,6 +98,8 @@ export function App() {
   const [resizing, setResizing] = useState(false);
   const [secondaryLanguage, setSecondaryLanguage] = useState("en");
   const [isSecondaryMenuOpen, setIsSecondaryMenuOpen] = useState(false);
+  const [candidatePosition, setCandidatePosition] = useState({ left: 0, top: 0 });
+  const editorRef = useRef(null);
   const inputRefs = useRef([]);
   const previousDraftLines = useRef([""]);
   const resizeStart = useRef(null);
@@ -125,6 +127,10 @@ export function App() {
   const pagedCandidates = visibleCandidates.slice(candidatePage * PAGE_SIZE, candidatePage * PAGE_SIZE + PAGE_SIZE);
 
   useEffect(() => { setSelected(0); setCandidatePage(0); }, [query]);
+
+  useLayoutEffect(() => {
+    updateCandidatePosition();
+  }, [query, activeLine, draftLines, windowSize]);
 
   useEffect(() => {
     const filledSegments = draftLines.flatMap(splitChineseSegments).filter(isChineseText);
@@ -204,6 +210,52 @@ export function App() {
     requestAnimationFrame(() => {
       inputRefs.current[activeLine]?.focus();
       inputRefs.current[activeLine]?.setSelectionRange(start + text.length, start + text.length);
+    });
+  }
+
+  function updateCandidatePosition() {
+    const editor = editorRef.current;
+    const textarea = inputRefs.current[activeLine];
+    if (!editor || !textarea) return;
+
+    const computed = window.getComputedStyle(textarea);
+    const mirror = document.createElement("div");
+    const marker = document.createElement("span");
+    const caretIndex = textarea.selectionStart ?? textarea.value.length;
+    const beforeCaret = textarea.value.slice(0, caretIndex);
+    const textareaRect = textarea.getBoundingClientRect();
+
+    mirror.style.position = "absolute";
+    mirror.style.visibility = "hidden";
+    mirror.style.left = `${textareaRect.left}px`;
+    mirror.style.top = `${textareaRect.top}px`;
+    mirror.style.whiteSpace = "pre-wrap";
+    mirror.style.wordBreak = computed.wordBreak;
+    mirror.style.overflowWrap = computed.overflowWrap;
+    mirror.style.width = `${textarea.clientWidth}px`;
+    mirror.style.font = computed.font;
+    mirror.style.fontWeight = computed.fontWeight;
+    mirror.style.fontSize = computed.fontSize;
+    mirror.style.fontFamily = computed.fontFamily;
+    mirror.style.lineHeight = computed.lineHeight;
+    mirror.style.letterSpacing = computed.letterSpacing;
+    mirror.style.padding = computed.padding;
+    mirror.style.border = computed.border;
+    mirror.style.boxSizing = computed.boxSizing;
+    mirror.textContent = beforeCaret || "";
+    marker.textContent = "\u200b";
+    mirror.appendChild(marker);
+    document.body.appendChild(mirror);
+
+    const markerRect = marker.getBoundingClientRect();
+    const editorRect = editor.getBoundingClientRect();
+    const top = markerRect.bottom - editorRect.top + editor.scrollTop + 18;
+    const left = markerRect.right - editorRect.left + editor.scrollLeft;
+
+    document.body.removeChild(mirror);
+    setCandidatePosition({
+      left: Math.max(0, Math.min(left, editor.clientWidth - 215)),
+      top: Math.max(0, top),
     });
   }
 
@@ -347,7 +399,7 @@ export function App() {
           </div>
         </header>
         <section className="writing-area">
-          <div className="composition-editor">
+          <div className="composition-editor" ref={editorRef}>
             <div className="written-lines" aria-live="polite">
               {draftLines.map((line, index) => {
                 return (
@@ -358,6 +410,9 @@ export function App() {
                       onChange={(event) => handleDraftChange(event, index)}
                       onFocus={() => setActiveLine(index)}
                       onKeyDown={handleKeyDown}
+                      onKeyUp={updateCandidatePosition}
+                      onClick={updateCandidatePosition}
+                      onSelect={updateCandidatePosition}
                       placeholder={index === 0 ? "用英文输入法打出拼音…" : ""}
                       aria-label={`中文正文第 ${index + 1} 行`}
                       autoComplete="off"
@@ -369,7 +424,7 @@ export function App() {
                 );
               })}
             </div>
-            <div className="candidate-picker" role="listbox" aria-label="双语候选">
+            <div className="candidate-picker" style={query ? candidatePosition : undefined} role="listbox" aria-label="双语候选">
               {pagedCandidates.map((candidate, index) => {
                 const pair = translationPair(candidate);
                 return <button key={`${candidate.zh}-${index}`} className={selected === index ? "candidate selected" : "candidate"} role="option" aria-selected={selected === index} onMouseEnter={() => setSelected(index)} onClick={() => commit(candidate)}><b>{index + 1}.</b><span><strong>{pair.primary}</strong><em>{pair.secondary}</em></span></button>;
