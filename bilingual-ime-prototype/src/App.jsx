@@ -99,6 +99,7 @@ export function App() {
   const [secondaryLanguage, setSecondaryLanguage] = useState("en");
   const [isSecondaryMenuOpen, setIsSecondaryMenuOpen] = useState(false);
   const [candidatePosition, setCandidatePosition] = useState({ left: 0, top: 0 });
+  const [compositionPosition, setCompositionPosition] = useState({ left: 0, top: 0 });
   const editorRef = useRef(null);
   const inputRefs = useRef([]);
   const previousDraftLines = useRef([""]);
@@ -249,13 +250,19 @@ export function App() {
 
     const markerRect = marker.getBoundingClientRect();
     const editorRect = editor.getBoundingClientRect();
-    const top = markerRect.bottom - editorRect.top + editor.scrollTop + 18;
     const left = markerRect.right - editorRect.left + editor.scrollLeft;
+    const compositionTop = markerRect.top - editorRect.top + editor.scrollTop;
+    const candidateTop = markerRect.bottom - editorRect.top + editor.scrollTop + 18;
+    const clampedLeft = Math.max(0, Math.min(left, editor.clientWidth - 215));
 
     document.body.removeChild(mirror);
+    setCompositionPosition({
+      left: Math.max(0, Math.min(left, editor.clientWidth - 60)),
+      top: Math.max(0, compositionTop),
+    });
     setCandidatePosition({
-      left: Math.max(0, Math.min(left, editor.clientWidth - 215)),
-      top: Math.max(0, top),
+      left: clampedLeft,
+      top: Math.max(0, candidateTop),
     });
   }
 
@@ -418,7 +425,7 @@ export function App() {
                       autoComplete="off"
                       spellCheck="false"
                     />
-                    {query && activeLine === index && <span className="pinyin-composition">{query}</span>}
+                    {query && activeLine === index && <span className="pinyin-composition" style={compositionPosition}>{query}</span>}
                     {line && <span>{renderSecondarySegments(line, index)}</span>}
                   </p>
                 );
