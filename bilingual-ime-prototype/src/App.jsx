@@ -29,7 +29,7 @@ const punctuationMap = {
   "(": "（",
   ")": "）",
 };
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 7;
 const scrambleChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$%&";
 
 function isChineseText(text) {
@@ -87,6 +87,7 @@ function StableTranslation({ text, hasPlayed, onDone }) {
 
 export function App() {
   const [query, setQuery] = useState("");
+  const [queryCursor, setQueryCursor] = useState(0);
   const [selected, setSelected] = useState(0);
   const [candidatePage, setCandidatePage] = useState(0);
   const [draftLines, setDraftLines] = useState([""]);
@@ -131,6 +132,10 @@ export function App() {
   const pagedCandidates = visibleCandidates.slice(candidatePage * PAGE_SIZE, candidatePage * PAGE_SIZE + PAGE_SIZE);
 
   useEffect(() => { setSelected(0); setCandidatePage(0); }, [query]);
+
+  useEffect(() => {
+    setQueryCursor((current) => Math.min(current, query.length));
+  }, [query]);
 
   useLayoutEffect(() => {
     updateCandidatePosition();
@@ -288,12 +293,14 @@ export function App() {
     if (!candidate && !suffix) return;
     replaceDraftSelection(`${candidate?.zh ?? ""}${suffix}`);
     setQuery("");
+    setQueryCursor(0);
   }
 
   function handleKeyDown(event) {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "a") {
       event.preventDefault();
       setQuery("");
+      setQueryCursor(0);
       setAllChineseSelected(true);
       return;
     }
@@ -323,8 +330,32 @@ export function App() {
       setAllChineseSelected(false);
     }
     if (event.metaKey || event.ctrlKey || event.altKey) return;
-    if (event.key === "ArrowDown" && pagedCandidates.length) { event.preventDefault(); setSelected((current) => (current + 1) % pagedCandidates.length); }
-    else if (event.key === "ArrowUp" && pagedCandidates.length) { event.preventDefault(); setSelected((current) => (current - 1 + pagedCandidates.length) % pagedCandidates.length); }
+    if (event.key === "ArrowDown" && query && pagedCandidates.length) { event.preventDefault(); setSelected((current) => (current + 1) % pagedCandidates.length); }
+    else if (event.key === "ArrowUp" && query && pagedCandidates.length) { event.preventDefault(); setSelected((current) => (current - 1 + pagedCandidates.length) % pagedCandidates.length); }
+    else if (event.key === "ArrowDown" && !query && activeLine < draftLines.length - 1) {
+      event.preventDefault();
+      const nextLine = activeLine + 1;
+      const column = inputRefs.current[activeLine]?.selectionStart ?? draftLines[activeLine].length;
+      setActiveLine(nextLine);
+      requestAnimationFrame(() => {
+        inputRefs.current[nextLine]?.focus();
+        inputRefs.current[nextLine]?.setSelectionRange(Math.min(column, draftLines[nextLine].length), Math.min(column, draftLines[nextLine].length));
+        updateCandidatePosition();
+      });
+    }
+    else if (event.key === "ArrowUp" && !query && activeLine > 0) {
+      event.preventDefault();
+      const nextLine = activeLine - 1;
+      const column = inputRefs.current[activeLine]?.selectionStart ?? draftLines[activeLine].length;
+      setActiveLine(nextLine);
+      requestAnimationFrame(() => {
+        inputRefs.current[nextLine]?.focus();
+        inputRefs.current[nextLine]?.setSelectionRange(Math.min(column, draftLines[nextLine].length), Math.min(column, draftLines[nextLine].length));
+        updateCandidatePosition();
+      });
+    }
+    else if (event.key === "ArrowLeft" && query) { event.preventDefault(); setQueryCursor((current) => Math.max(0, current - 1)); }
+    else if (event.key === "ArrowRight" && query) { event.preventDefault(); setQueryCursor((current) => Math.min(query.length, current + 1)); }
     else if (event.key === "-" && query && pageCount > 1) { event.preventDefault(); setCandidatePage((current) => (current - 1 + pageCount) % pageCount); setSelected(0); }
     else if (event.key === "=" && query && pageCount > 1) { event.preventDefault(); setCandidatePage((current) => (current + 1) % pageCount); setSelected(0); }
     else if ((event.key === "Enter" || event.key === " ") && query && pagedCandidates.length) { event.preventDefault(); commit(); }
@@ -339,9 +370,19 @@ export function App() {
       setActiveLine(nextLine);
       requestAnimationFrame(() => inputRefs.current[nextLine]?.focus());
     }
-    else if (/^[1-5]$/.test(event.key) && pagedCandidates[Number(event.key) - 1]) { event.preventDefault(); commit(pagedCandidates[Number(event.key) - 1]); }
+    else if (/^[1-7]$/.test(event.key) && pagedCandidates[Number(event.key) - 1]) { event.preventDefault(); commit(pagedCandidates[Number(event.key) - 1]); }
     else if (punctuationMap[event.key]) { event.preventDefault(); commit(query ? pagedCandidates[selected] : null, punctuationMap[event.key]); }
-    else if (event.key === "Backspace" && query) { event.preventDefault(); setQuery((current) => current.slice(0, -1)); }
+    else if (event.key === "Backspace" && query) {
+      event.preventDefault();
+      if (queryCursor > 0) {
+        setQuery((current) => `${current.slice(0, queryCursor - 1)}${current.slice(queryCursor)}`);
+        setQueryCursor((current) => Math.max(0, current - 1));
+      }
+    }
+    else if (event.key === "Delete" && query) {
+      event.preventDefault();
+      setQuery((current) => `${current.slice(0, queryCursor)}${current.slice(queryCursor + 1)}`);
+    }
     else if (event.key === "Backspace" && !query && !draftLines[activeLine] && draftLines.length > 1) {
       event.preventDefault();
       const previousLine = Math.max(0, activeLine - 1);
@@ -349,7 +390,12 @@ export function App() {
       setActiveLine(previousLine);
       requestAnimationFrame(() => inputRefs.current[previousLine]?.focus());
     }
-    else if (/^[a-z]$/i.test(event.key) && !event.metaKey && !event.ctrlKey && !event.altKey) { event.preventDefault(); setQuery((current) => `${current}${event.key.toLowerCase()}`); }
+    else if (/^[a-z]$/i.test(event.key) && !event.metaKey && !event.ctrlKey && !event.altKey) {
+      event.preventDefault();
+      const letter = event.key.toLowerCase();
+      setQuery((current) => `${current.slice(0, queryCursor)}${letter}${current.slice(queryCursor)}`);
+      setQueryCursor((current) => current + 1);
+    }
   }
 
   function handleDraftChange(event, lineIndex) {
@@ -364,9 +410,12 @@ export function App() {
       setCandidatePage((current) => (current - 1 + pageCount) % pageCount);
       setSelected(0);
     }
-    const controlPattern = query ? /[a-z=-]+/gi : /[a-z]+/gi;
+    const controlPattern = query ? /[a-z=-]+/gi : /[=-]+/gi;
     setDraftLines((current) => current.map((line, index) => (index === lineIndex ? next.replace(controlPattern, "") : line)));
-    if (pinyin) setQuery((current) => `${current}${pinyin}`);
+    if (pinyin) {
+      setQuery((current) => `${current.slice(0, queryCursor)}${pinyin}${current.slice(queryCursor)}`);
+      setQueryCursor((current) => current + pinyin.length);
+    }
   }
 
   function startResize(event) {
@@ -477,7 +526,13 @@ export function App() {
                       spellCheck="false"
                     />
                     {isEditorFocused && activeLine === index && !allChineseSelected && <span className="custom-caret" style={caretPosition} />}
-                    {query && activeLine === index && <span className="pinyin-composition" style={compositionPosition}>{query}</span>}
+                    {query && activeLine === index && (
+                      <span className="pinyin-composition" style={compositionPosition}>
+                        {query.slice(0, queryCursor)}
+                        <span className="pinyin-caret" />
+                        {query.slice(queryCursor)}
+                      </span>
+                    )}
                     {line && <span className="secondary-line">{renderSecondarySegments(line, index)}</span>}
                   </p>
                 );
