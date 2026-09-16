@@ -19,6 +19,7 @@ Acceptance criteria:
 - ASCII punctuation maps to Chinese punctuation and can be committed into the draft.
 - The editor supports native select all, selected-text deletion, cursor movement, line breaks, and one-character deletion for committed Chinese text.
 - Pressing Enter without active pinyin creates a new bilingual line group rather than stacking Chinese lines above one shared translation.
+- Separate bilingual groups stay at a fixed 28 px visual gap and are not stretched by unused editor height.
 - Enter-created soft line breaks stay compact and must not inherit the 28 px separate-group spacing.
 - The placeholder says `用英文输入法打出拼音...`.
 - `npm run build` passes.
