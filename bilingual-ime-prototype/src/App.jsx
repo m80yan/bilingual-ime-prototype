@@ -36,6 +36,12 @@ function isChineseText(text) {
   return /[\u3400-\u9fff]/.test(text);
 }
 
+function splitChineseSegments(text) {
+  if (!text) return [];
+  const matches = text.match(/[^。！？!?]+[。！？!?]?/g) ?? [];
+  return matches.map((segment) => segment.trim()).filter(Boolean);
+}
+
 function englishCandidate(value) {
   if (!value) return "";
   if (value.toLowerCase() === "pisa") return "Pizza";
@@ -86,7 +92,7 @@ export function App() {
   const [draftLines, setDraftLines] = useState([""]);
   const [translations, setTranslations] = useState({});
   const [playedTranslations, setPlayedTranslations] = useState({});
-  const [loadingLines, setLoadingLines] = useState({});
+  const [loadingSegments, setLoadingSegments] = useState({});
   const [activeLine, setActiveLine] = useState(0);
   const [windowSize, setWindowSize] = useState({ width: 978, height: 520 });
   const [resizing, setResizing] = useState(false);
@@ -121,25 +127,32 @@ export function App() {
   useEffect(() => { setSelected(0); setCandidatePage(0); }, [query]);
 
   useEffect(() => {
-    const filledLines = draftLines.filter(isChineseText);
-    if (!filledLines.length) {
-      setLoadingLines({});
+    const filledSegments = draftLines.flatMap(splitChineseSegments).filter(isChineseText);
+    if (!filledSegments.length) {
+      setLoadingSegments({});
       return undefined;
     }
 
-    const lineKeys = Object.fromEntries(draftLines.map((line, index) => [
-      index,
-      Boolean(line) && isChineseText(line) && line !== previousDraftLines.current[index],
-    ]));
+    const previousSegments = previousDraftLines.current.flatMap(splitChineseSegments);
+    const segmentKeys = {};
+    draftLines.forEach((line, lineIndex) => {
+      splitChineseSegments(line).forEach((segment, segmentIndex) => {
+        const previousSegment = splitChineseSegments(previousDraftLines.current[lineIndex] ?? "")[segmentIndex];
+        segmentKeys[`${lineIndex}:${segment}`] = isChineseText(segment) && segment !== previousSegment;
+      });
+    });
+    previousSegments
+      .filter((segment) => !filledSegments.includes(segment))
+      .forEach((segment) => { segmentKeys[`removed:${segment}`] = false; });
     previousDraftLines.current = draftLines;
-    setLoadingLines(lineKeys);
-    const pending = [...new Set([...getPinyinCandidates(query), ...filledLines].filter(Boolean))]
+    setLoadingSegments(segmentKeys);
+    const pending = [...new Set([...getPinyinCandidates(query), ...filledSegments].filter(Boolean))]
       .filter((zh) => !localTranslations[zh]?.[secondaryLanguage]
         && !(secondaryLanguage === "en" && cedictTranslations[zh]?.length)
         && !translations[`${secondaryLanguage}:${zh}`]);
 
     if (!pending.length) {
-      const settle = window.setTimeout(() => setLoadingLines({}), 360);
+      const settle = window.setTimeout(() => setLoadingSegments({}), 360);
       return () => window.clearTimeout(settle);
     }
 
@@ -162,7 +175,7 @@ export function App() {
       } catch (error) {
         if (error.name !== "AbortError") console.warn("Translation service is unavailable.");
       } finally {
-        if (!controller.signal.aborted) setLoadingLines({});
+        if (!controller.signal.aborted) setLoadingSegments({});
       }
     }, 300);
 
@@ -265,6 +278,28 @@ export function App() {
     };
   }
 
+  function renderSecondarySegments(line, lineIndex) {
+    return splitChineseSegments(line).map((segment, segmentIndex) => {
+      const secondary = translationFor(segment, secondaryLanguage);
+      const translationKey = `${secondaryLanguage}:${segment}:${secondary}`;
+      const loadingKey = `${lineIndex}:${segment}`;
+      const needsSpace = segmentIndex > 0;
+
+      return (
+        <span className="translation-segment" key={`${segment}-${segmentIndex}`}>
+          {needsSpace ? " " : ""}
+          {loadingSegments[loadingKey]
+            ? <span className="translation-shimmer segment-shimmer" aria-label="Translating" />
+            : <StableTranslation
+                text={secondary}
+                hasPlayed={Boolean(playedTranslations[translationKey])}
+                onDone={() => setPlayedTranslations((current) => ({ ...current, [translationKey]: true }))}
+              />}
+        </span>
+      );
+    });
+  }
+
   function secondaryLanguageCombo() {
     const selectedLanguage = secondaryLanguages.find((language) => language.id === secondaryLanguage);
 
@@ -315,12 +350,6 @@ export function App() {
           <div className="composition-editor">
             <div className="written-lines" aria-live="polite">
               {draftLines.map((line, index) => {
-                const secondary = translationPair({
-                  zh: line,
-                  en: translationFor(line, "en"),
-                  ja: translationFor(line, "ja"),
-                }).secondary;
-                const translationKey = `${secondaryLanguage}:${line}:${secondary}`;
                 return (
                   <p className="bilingual-line" key={index}>
                     <textarea
@@ -335,13 +364,7 @@ export function App() {
                       spellCheck="false"
                     />
                     {query && activeLine === index && <span className="pinyin-composition">{query}</span>}
-                    {line && (loadingLines[index]
-                      ? <span className="translation-shimmer" aria-label="Translating" />
-                      : <span><StableTranslation
-                        text={secondary}
-                        hasPlayed={Boolean(playedTranslations[translationKey])}
-                        onDone={() => setPlayedTranslations((current) => ({ ...current, [translationKey]: true }))}
-                      /></span>)}
+                    {line && <span>{renderSecondarySegments(line, index)}</span>}
                   </p>
                 );
               })}

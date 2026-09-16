@@ -48,7 +48,8 @@ Acceptance criteria:
 - API response updates the committed sentence translation below the Chinese line.
 - Every committed Chinese modification shows a long square-ended horizontal shimmer before the latest secondary-language translation appears.
 - The latest secondary-language translation appears with a decode-style typing reveal.
-- A settled sentence-final bilingual line does not replay the typing reveal when the user edits later text.
+- A settled bilingual line does not replay the typing reveal when the user edits later lines.
+- A sentence segment ending in Chinese sentence-final punctuation does not replay the typing reveal when the user continues typing later text on the same line.
 - Failed API responses leave the Chinese draft intact and keep typing usable.
 - Translation requests are debounced and do not fire for every keystroke.
 - Verify with at least one unknown full sentence on production.

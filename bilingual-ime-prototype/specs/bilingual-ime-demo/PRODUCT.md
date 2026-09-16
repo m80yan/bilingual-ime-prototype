@@ -101,7 +101,7 @@ Figma references were provided during earlier implementation for the window stru
 
 25a. When the latest translation appears, the secondary-language text uses a decode-style typing reveal: characters briefly cycle through alternate symbols before settling into the final translation.
 
-25b. Once a Chinese line ends with sentence-final punctuation such as `。`, `！`, or `？`, its secondary-language line is considered settled. Later edits on following lines must not replay the settled line's decode typing effect.
+25b. Once a Chinese sentence segment ends with sentence-final punctuation such as `。`, `！`, or `？`, the matching secondary-language segment is considered settled even if the user continues typing on the same line. Later text after that punctuation must shimmer/reveal independently without replaying the settled segment, unless the settled Chinese segment itself is edited.
 
 26. When a committed Chinese sentence has a full-sentence translation, the line below the Chinese draft displays that full-sentence translation, not only per-word dictionary glosses.
 
