@@ -270,9 +270,9 @@ export function App() {
     const markerRect = marker.getBoundingClientRect();
     const editorRect = editor.getBoundingClientRect();
     const left = markerRect.right - editorRect.left + editor.scrollLeft;
-    const compositionTop = markerRect.top - editorRect.top + editor.scrollTop;
+    const compositionTop = markerRect.top - editorRect.top;
     const caretTop = compositionTop - 3;
-    const candidateTop = markerRect.bottom - editorRect.top + editor.scrollTop + 18;
+    const candidateTop = markerRect.bottom - editorRect.top + 18;
     const clampedLeft = Math.max(0, Math.min(left, editor.clientWidth - 215));
 
     document.body.removeChild(mirror);
@@ -286,7 +286,7 @@ export function App() {
     });
     setCandidatePosition({
       left: clampedLeft,
-      top: Math.max(0, candidateTop),
+      top: Math.max(8, Math.min(candidateTop, editor.clientHeight - 240)),
     });
   }
 
@@ -518,7 +518,7 @@ export function App() {
         </header>
         <section className="writing-area">
           <div className="composition-editor" ref={editorRef}>
-            <div className="written-lines" aria-live="polite">
+            <div className="written-lines" aria-live="polite" onScroll={updateCandidatePosition}>
               {draftLines.map((line, index) => {
                 return (
                   <p className={allChineseSelected ? "bilingual-line all-selected" : "bilingual-line"} key={index}>
