@@ -272,7 +272,7 @@ export function App() {
     const left = markerRect.right - editorRect.left + editor.scrollLeft;
     const compositionTop = markerRect.top - editorRect.top;
     const caretTop = compositionTop - 6;
-    const candidateTop = markerRect.bottom - editorRect.top + 18;
+    const candidateTop = markerRect.bottom + 18;
 
     document.body.removeChild(mirror);
     setCompositionPosition({
@@ -284,7 +284,7 @@ export function App() {
       top: Math.max(0, caretTop),
     });
     setCandidatePosition({
-      left,
+      left: markerRect.right,
       top: Math.max(0, candidateTop),
     });
   }
