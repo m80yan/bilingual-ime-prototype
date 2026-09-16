@@ -46,31 +46,37 @@ Figma references were provided during earlier implementation for the window stru
 
 7. The note area and input region keep stable vertical positions while the user types. Candidate count, loading translation text, or candidate highlight changes must not push the input field or written text up and down.
 
-8. The user types pinyin into the single text field. While the field contains Latin letters, the candidate picker shows up to five Chinese candidate options.
+8. The user types pinyin into the editor with an English keyboard/input method. The placeholder must explicitly say `用英文输入法打出拼音...` because non-English system IMEs can cover or interfere with the web candidate picker.
 
-9. Each candidate option is displayed as a bilingual subtitle pair:
+9. The Chinese editor behaves like a general text field for committed text. The user can select all, delete selections, move the cursor with arrow keys, insert line breaks, and delete one character at a time using normal browser text-editing behavior.
+
+10. While the user is composing pinyin, the pinyin composition text appears after the current Chinese text rather than in a separate permanent field. If the user inserts a line break, composition continues from the current cursor position on that line.
+
+11. While the editor contains Latin-letter pinyin composition, the candidate picker shows up to five Chinese candidate options.
+
+12. Each candidate option is displayed as a bilingual subtitle pair:
    - First line: Chinese candidate text.
    - Second line: translation in the selected secondary language.
 
-10. Candidate numbering uses 1-5. Pressing a number commits the matching candidate when it exists.
+13. Candidate numbering uses 1-5. Pressing a number commits the matching candidate when it exists.
 
-11. Arrow Down moves selection to the next visible candidate. Arrow Up moves selection to the previous visible candidate. Selection wraps around when candidates are visible.
+14. Arrow Down moves selection to the next visible candidate. Arrow Up moves selection to the previous visible candidate. Selection wraps around when candidates are visible.
 
-12. Arrow keys do not modify selection state when no candidates are visible.
+15. Arrow keys do not modify selection state when no candidates are visible and instead preserve ordinary text-field cursor movement.
 
-13. Pressing Space or Enter with visible candidates commits the selected candidate and clears the pinyin query.
+16. Pressing Space or Enter with visible candidates commits the selected candidate and clears the pinyin query. When no pinyin query is active, Enter inserts a normal line break.
 
-14. Clicking a candidate commits that candidate and returns focus to the pinyin field.
+17. Clicking a candidate commits that candidate and returns focus to the editor.
 
-15. Committed candidates append to the current Chinese draft sentence. They do not create a new visual line or a separate note item for each word.
+18. Committed candidates insert at the current cursor or replace the current selection in the Chinese draft. They do not create a new visual line or a separate note item for each word unless the user explicitly inserted a line break.
 
-16. The written Chinese text and its secondary-language translation are displayed as one bilingual pair: Chinese on the first line, translation directly below.
+19. The written Chinese text and its secondary-language translation are displayed as one bilingual pair: Chinese on the first line, translation directly below.
 
-17. Backspace behaves like a text editor:
+20. Backspace behaves like a text editor:
    - If the pinyin query contains characters, Backspace edits the query normally.
-   - If the pinyin query is empty and the Chinese draft contains text, Backspace deletes the last committed Chinese character or punctuation mark.
+   - If the pinyin query is empty, Backspace follows native text-field behavior: delete selected text or delete the character before the cursor.
 
-18. ASCII punctuation typed while the pinyin query is empty commits Chinese punctuation directly:
+21. ASCII punctuation typed while the pinyin query is empty commits Chinese punctuation directly:
    - `.` becomes `。`
    - `,` becomes `，`
    - `?` becomes `？`
@@ -80,28 +86,30 @@ Figma references were provided during earlier implementation for the window stru
    - `(` becomes `（`
    - `)` becomes `）`
 
-19. ASCII punctuation typed while the pinyin query has a selected candidate first commits the selected candidate, then appends the mapped Chinese punctuation, then clears the query.
+22. ASCII punctuation typed while the pinyin query has a selected candidate first commits the selected candidate, then appends the mapped Chinese punctuation, then clears the query.
 
-20. Translation has a fast local path and a slower AI fallback:
+23. Translation has a fast local path and a slower AI fallback:
    - Known local phrases and dictionary-backed words display immediately.
    - Unknown full sentences can request the translation API.
    - The browser never receives the OpenAI API key.
 
-21. Translation requests are debounced so typing does not call the API for every keystroke. The user should be able to keep typing while translation is pending.
+24. Translation requests are debounced so typing does not call the API for every keystroke. The user should be able to keep typing while translation is pending.
 
-22. When a committed Chinese sentence has a full-sentence translation, the line below the Chinese draft displays that full-sentence translation, not only per-word dictionary glosses.
+25. Every committed Chinese modification first shows a long horizontal shimmer in the secondary-language line, then replaces the shimmer with the latest translation once it is available.
 
-23. While a sentence translation is unavailable, the UI may show a quiet placeholder such as `...`, but it should not block typing, candidate selection, deletion, or punctuation input.
+26. When a committed Chinese sentence has a full-sentence translation, the line below the Chinese draft displays that full-sentence translation, not only per-word dictionary glosses.
 
-24. If the translation API fails, the editor remains usable. The Chinese draft stays intact, the pinyin field remains focused or focusable, and the user can keep writing.
+27. While a sentence translation is unavailable, the UI may show a quiet placeholder such as `...`, but it should not block typing, candidate selection, deletion, punctuation input, selection, cursor movement, or line breaks.
 
-25. Candidate translation failures should not hide Chinese candidates. At worst, candidates show a placeholder on the translation line.
+28. If the translation API fails, the editor remains usable. The Chinese draft stays intact, the editor remains focused or focusable, and the user can keep writing.
 
-26. The page must be usable in a Notion embed. It should not depend on pop-ups, browser extension permissions, local native translation APIs, or cross-origin storage assumptions.
+29. Candidate translation failures should not hide Chinese candidates. At worst, candidates show a placeholder on the translation line.
 
-27. The UI should stay visually quiet. Do not add breadcrumbs, line metadata, note status, overflow menus, input eyebrows, or explanatory in-app text unless the user explicitly asks for them.
+30. The page must be usable in a Notion embed. It should not depend on pop-ups, browser extension permissions, local native translation APIs, or cross-origin storage assumptions.
 
-28. The implementation should keep the demo's existing build and deployment paths intact:
+31. The UI should stay visually quiet. Do not add breadcrumbs, line metadata, note status, overflow menus, input eyebrows, or explanatory in-app text unless the user explicitly asks for them.
+
+32. The implementation should keep the demo's existing build and deployment paths intact:
    - `npm run build` must succeed.
    - `npm run test:sites` must succeed.
    - Vercel production deployment should continue to serve the same public URL.

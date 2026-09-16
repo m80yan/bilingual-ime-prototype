@@ -1,7 +1,7 @@
 :root { font-family: Inter, Arial, "PingFang SC", "Microsoft YaHei", sans-serif; color: #000; background: #fafafa; font-synthesis: none; }
 * { box-sizing: border-box; }
 body { min-width: 800px; margin: 0; min-height: 100vh; background: #fafafa; }
-button, input { font: inherit; }
+button, input, textarea { font: inherit; }
 button { color: inherit; }
 .input-stage { position: relative; display: grid; place-items: center; width: max(100vw, 1112px); min-height: max(100vh, 654px); padding: 67px; overflow: hidden; background: #fafafa; }
 .ime-window { position: relative; display: grid; grid-template-rows: 84px minmax(0, 1fr) 36px; min-width: 800px; min-height: 450px; background: #fff; border: 1px solid #e5e5e5; }
@@ -19,8 +19,10 @@ button { color: inherit; }
 .writing-area { position: relative; min-height: 0; overflow: hidden; background: #fff; }
 .composition-editor { position: absolute; inset: 16px 15px; display: flex; flex-direction: column; align-items: stretch; min-height: 0; overflow: auto; padding-bottom: 16px; }
 .written-lines { display: grid; gap: 5px; }
-.written-lines p { display: grid; gap: 2px; margin: 0; font-size: 12px; line-height: 14px; }.written-lines strong { font-weight: 700; }.written-lines span { font-weight: 700; }
-.typing-line { flex: 0 0 28px; height: 28px; margin-top: 8px; }.typing-line input { width: 100%; height: 28px; border: 0; outline: 0; padding: 0; color: #222; font-size: 12px; font-weight: 700; }.typing-line input::placeholder { color: #aaa; font-weight: 400; }
+.written-lines p { display: grid; gap: 3px; margin: 0; font-size: 12px; line-height: 14px; }.written-lines textarea { display: block; width: 100%; min-height: 19px; max-height: 112px; resize: none; overflow: auto; border: 0; outline: 0; padding: 0; color: #000; background: transparent; font-size: 12px; font-weight: 700; line-height: 16px; white-space: pre-wrap; }.written-lines textarea::placeholder { color: #aaa; font-weight: 400; }.written-lines span { font-weight: 700; }
+.pinyin-composition { display: inline-block; width: fit-content; min-width: 24px; margin-top: -1px; border-bottom: 1px solid #333; color: #222; font-weight: 700; line-height: 15px; }
+.translation-shimmer { display: block; width: min(260px, 62%); height: 10px; margin-top: 2px; overflow: hidden; border-radius: 999px; background: linear-gradient(90deg, #ececec 0%, #f7f7f7 42%, #e4e4e4 74%); background-size: 220% 100%; animation: shimmer 1.05s ease-in-out infinite; }
+@keyframes shimmer { from { background-position: 140% 0; } to { background-position: -80% 0; } }
 .candidate-picker { position: relative; z-index: 1; flex: 0 0 auto; width: 215px; max-height: 171px; overflow-y: auto; border: 1px solid #aaa; background: #fff; box-shadow: 0 8px 16px rgb(0 0 0 / 25%); }
 .candidate-picker:empty { display: none; }
 .candidate { display: grid; grid-template-columns: 25px 1fr; align-items: start; width: 100%; min-height: 30px; padding: 4px 8px; border: 0; border-left: 1px solid transparent; background: #fff; text-align: left; cursor: pointer; }.candidate:hover { background: rgb(81 147 251 / 12%); }.candidate.selected { border-left-color: #5193fb; background: rgb(81 147 251 / 25%); }.candidate b { color: #5193fb; font-size: 24px; line-height: 22px; }.candidate span { display: grid; gap: 1px; padding-top: 1px; }.candidate strong, .candidate em { font-size: 12px; line-height: 14px; }.candidate strong { font-style: normal; }.candidate em { font-style: normal; }

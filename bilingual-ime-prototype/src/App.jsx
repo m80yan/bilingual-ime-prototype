@@ -33,8 +33,9 @@ const punctuationMap = {
 export function App() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
-  const [draft, setDraft] = useState("我爱你");
+  const [draft, setDraft] = useState("");
   const [translations, setTranslations] = useState({});
+  const [isTranslationLoading, setIsTranslationLoading] = useState(false);
   const [windowSize, setWindowSize] = useState({ width: 978, height: 520 });
   const [resizing, setResizing] = useState(false);
   const [secondaryLanguage, setSecondaryLanguage] = useState("en");
@@ -61,12 +62,21 @@ export function App() {
   useEffect(() => setSelected(0), [query]);
 
   useEffect(() => {
+    if (!draft) {
+      setIsTranslationLoading(false);
+      return undefined;
+    }
+
+    setIsTranslationLoading(true);
     const pending = [...new Set([...getPinyinCandidates(query), draft].filter(Boolean))]
       .filter((zh) => !localTranslations[zh]?.[secondaryLanguage]
         && !(secondaryLanguage === "en" && cedictTranslations[zh]?.length)
         && !translations[`${secondaryLanguage}:${zh}`]);
 
-    if (!pending.length) return undefined;
+    if (!pending.length) {
+      const settle = window.setTimeout(() => setIsTranslationLoading(false), 360);
+      return () => window.clearTimeout(settle);
+    }
 
     const controller = new AbortController();
     const debounce = window.setTimeout(async () => {
@@ -86,6 +96,8 @@ export function App() {
         }));
       } catch (error) {
         if (error.name !== "AbortError") console.warn("Translation service is unavailable.");
+      } finally {
+        if (!controller.signal.aborted) setIsTranslationLoading(false);
       }
     }, 300);
 
@@ -104,20 +116,40 @@ export function App() {
     return () => { window.removeEventListener("pointermove", resize); window.removeEventListener("pointerup", stop); };
   }, []);
 
+  function replaceDraftSelection(text) {
+    const editor = inputRef.current;
+    const start = editor?.selectionStart ?? draft.length;
+    const end = editor?.selectionEnd ?? start;
+    const next = `${draft.slice(0, start)}${text}${draft.slice(end)}`;
+    setDraft(next);
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.setSelectionRange(start + text.length, start + text.length);
+    });
+  }
+
   function commit(candidate = visibleCandidates[selected], suffix = "") {
     if (!candidate && !suffix) return;
-    setDraft((current) => `${current}${candidate?.zh ?? ""}${suffix}`);
+    replaceDraftSelection(`${candidate?.zh ?? ""}${suffix}`);
     setQuery("");
-    inputRef.current?.focus();
   }
 
   function handleKeyDown(event) {
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
     if (event.key === "ArrowDown" && visibleCandidates.length) { event.preventDefault(); setSelected((current) => (current + 1) % visibleCandidates.length); }
     else if (event.key === "ArrowUp" && visibleCandidates.length) { event.preventDefault(); setSelected((current) => (current - 1 + visibleCandidates.length) % visibleCandidates.length); }
-    else if (event.key === "Enter" || event.key === " ") { event.preventDefault(); commit(); }
+    else if ((event.key === "Enter" || event.key === " ") && query && visibleCandidates.length) { event.preventDefault(); commit(); }
     else if (/^[1-5]$/.test(event.key) && visibleCandidates[Number(event.key) - 1]) { event.preventDefault(); commit(visibleCandidates[Number(event.key) - 1]); }
     else if (punctuationMap[event.key]) { event.preventDefault(); commit(query ? visibleCandidates[selected] : null, punctuationMap[event.key]); }
-    else if (event.key === "Backspace" && !query && draft) { event.preventDefault(); setDraft((current) => current.slice(0, -1)); }
+    else if (event.key === "Backspace" && query) { event.preventDefault(); setQuery((current) => current.slice(0, -1)); }
+    else if (/^[a-z]$/i.test(event.key) && !event.metaKey && !event.ctrlKey && !event.altKey) { event.preventDefault(); setQuery((current) => `${current}${event.key.toLowerCase()}`); }
+  }
+
+  function handleDraftChange(event) {
+    const next = event.target.value;
+    const pinyin = next.match(/[a-z]+/gi)?.join("").toLowerCase() ?? "";
+    setDraft(next.replace(/[a-z]+/gi, ""));
+    if (pinyin) setQuery((current) => `${current}${pinyin}`);
   }
 
   function startResize(event) {
@@ -143,6 +175,9 @@ export function App() {
     en: translationFor(draft, "en"),
     ja: translationFor(draft, "ja"),
   });
+  const draftSecondary = isTranslationLoading && draft
+    ? <span className="translation-shimmer" aria-label="Translating" />
+    : draftPair.secondary;
 
   function secondaryLanguageCombo() {
     const selectedLanguage = secondaryLanguages.find((language) => language.id === secondaryLanguage);
@@ -193,9 +228,12 @@ export function App() {
         <section className="writing-area">
           <div className="composition-editor">
             <div className="written-lines" aria-live="polite">
-              {draft && <p><strong>{draftPair.primary}</strong><span>{draftPair.secondary}</span></p>}
+              <p>
+                <textarea ref={inputRef} value={draft} onChange={handleDraftChange} onKeyDown={handleKeyDown} placeholder="用英文输入法打出拼音…" aria-label="中文正文" autoComplete="off" spellCheck="false" />
+                {query && <span className="pinyin-composition">{query}</span>}
+                {draft && <span>{draftSecondary}</span>}
+              </p>
             </div>
-            <div className="typing-line"><input ref={inputRef} value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={handleKeyDown} placeholder="输入拼音…" aria-label="输入拼音" autoComplete="off" /></div>
             <div className="candidate-picker" role="listbox" aria-label="双语候选">
               {visibleCandidates.map((candidate, index) => {
                 const pair = translationPair(candidate);
