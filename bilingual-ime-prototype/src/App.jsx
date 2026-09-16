@@ -19,6 +19,16 @@ const secondaryLanguages = [
   { id: "en", label: "English" },
   { id: "ja", label: "日本語" },
 ];
+const punctuationMap = {
+  ",": "，",
+  ".": "。",
+  "?": "？",
+  "!": "！",
+  ";": "；",
+  ":": "：",
+  "(": "（",
+  ")": "）",
+};
 
 export function App() {
   const [query, setQuery] = useState("");
@@ -94,9 +104,9 @@ export function App() {
     return () => { window.removeEventListener("pointermove", resize); window.removeEventListener("pointerup", stop); };
   }, []);
 
-  function commit(candidate = visibleCandidates[selected]) {
-    if (!candidate) return;
-    setDraft((current) => `${current}${candidate.zh}`);
+  function commit(candidate = visibleCandidates[selected], suffix = "") {
+    if (!candidate && !suffix) return;
+    setDraft((current) => `${current}${candidate?.zh ?? ""}${suffix}`);
     setQuery("");
     inputRef.current?.focus();
   }
@@ -106,6 +116,7 @@ export function App() {
     else if (event.key === "ArrowUp" && visibleCandidates.length) { event.preventDefault(); setSelected((current) => (current - 1 + visibleCandidates.length) % visibleCandidates.length); }
     else if (event.key === "Enter" || event.key === " ") { event.preventDefault(); commit(); }
     else if (/^[1-5]$/.test(event.key) && visibleCandidates[Number(event.key) - 1]) { event.preventDefault(); commit(visibleCandidates[Number(event.key) - 1]); }
+    else if (punctuationMap[event.key]) { event.preventDefault(); commit(query ? visibleCandidates[selected] : null, punctuationMap[event.key]); }
     else if (event.key === "Backspace" && !query && draft) { event.preventDefault(); setDraft((current) => current.slice(0, -1)); }
   }
 

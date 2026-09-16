@@ -3,6 +3,15 @@ const supportedLanguages = {
   ja: "natural Japanese",
 };
 
+function readOutputText(data) {
+  if (typeof data.output_text === "string") return data.output_text;
+  return data.output
+    ?.flatMap((item) => item.content ?? [])
+    .map((part) => part.text)
+    .filter(Boolean)
+    .join("");
+}
+
 function json(response, body, status = 200) {
   response.setHeader("Cache-Control", "no-store");
   return response.status(status).json(body);
@@ -23,7 +32,7 @@ export default async function handler(request, response) {
 
   const targetLanguage = body.targetLanguage;
   const texts = [...new Set(Array.isArray(body.texts) ? body.texts : [])]
-    .filter((text) => typeof text === "string" && text.length > 0 && text.length <= 30)
+    .filter((text) => typeof text === "string" && text.length > 0 && text.length <= 80)
     .slice(0, 5);
 
   if (!supportedLanguages[targetLanguage] || !texts.length) return json(response, { error: "Invalid translation request" }, 400);
@@ -44,7 +53,7 @@ export default async function handler(request, response) {
     },
     body: JSON.stringify({
       model: "gpt-5-nano",
-      reasoning: { effort: "none" },
+      reasoning: { effort: "minimal" },
       input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }],
       temperature: 0.2,
       max_output_tokens: 180,
@@ -58,15 +67,16 @@ export default async function handler(request, response) {
   }
 
   const data = await openaiResponse.json();
+  const outputText = readOutputText(data);
   try {
-    const raw = data.output_text.replace(/^```json\s*|\s*```$/g, "");
+    const raw = outputText.replace(/^```json\s*|\s*```$/g, "");
     const result = JSON.parse(raw);
     const translations = Object.fromEntries(texts
       .filter((text) => typeof result[text] === "string")
       .map((text) => [text, result[text].trim()]));
     return json(response, { translations });
   } catch {
-    console.error("OpenAI translation response could not be read", data.output_text);
+    console.error("OpenAI translation response could not be read", outputText);
     return json(response, { error: "Translation response could not be read" }, 502);
   }
 }
