@@ -100,6 +100,8 @@ export function App() {
   const [isSecondaryMenuOpen, setIsSecondaryMenuOpen] = useState(false);
   const [candidatePosition, setCandidatePosition] = useState({ left: 0, top: 0 });
   const [compositionPosition, setCompositionPosition] = useState({ left: 0, top: 0 });
+  const [caretPosition, setCaretPosition] = useState({ left: 0, top: 0 });
+  const [isEditorFocused, setIsEditorFocused] = useState(false);
   const [allChineseSelected, setAllChineseSelected] = useState(false);
   const editorRef = useRef(null);
   const inputRefs = useRef([]);
@@ -270,6 +272,10 @@ export function App() {
     document.body.removeChild(mirror);
     setCompositionPosition({
       left: Math.max(0, Math.min(left, editor.clientWidth - 60)),
+      top: Math.max(0, compositionTop),
+    });
+    setCaretPosition({
+      left: Math.max(0, Math.min(left, editor.clientWidth - 2)),
       top: Math.max(0, compositionTop),
     });
     setCandidatePosition({
@@ -459,7 +465,8 @@ export function App() {
                       ref={(element) => { inputRefs.current[index] = element; }}
                       value={line}
                       onChange={(event) => handleDraftChange(event, index)}
-                      onFocus={() => setActiveLine(index)}
+                      onFocus={() => { setActiveLine(index); setIsEditorFocused(true); }}
+                      onBlur={() => setIsEditorFocused(false)}
                       onKeyDown={handleKeyDown}
                       onKeyUp={updateCandidatePosition}
                       onClick={() => { setAllChineseSelected(false); updateCandidatePosition(); }}
@@ -469,6 +476,7 @@ export function App() {
                       autoComplete="off"
                       spellCheck="false"
                     />
+                    {isEditorFocused && activeLine === index && !allChineseSelected && <span className="custom-caret" style={caretPosition} />}
                     {query && activeLine === index && <span className="pinyin-composition" style={compositionPosition}>{query}</span>}
                     {line && <span className="secondary-line">{renderSecondarySegments(line, index)}</span>}
                   </p>
