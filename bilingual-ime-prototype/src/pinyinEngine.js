@@ -12,6 +12,18 @@ function unique(items, limit) {
   return [...new Set(items.filter(Boolean))].slice(0, limit);
 }
 
+function associatedPrefixCandidates(input, exactCandidates, limit) {
+  const topExact = exactCandidates[0];
+  if (!topExact || topExact.length < 2) return [];
+  const suggestions = [];
+
+  for (let length = topExact.length - 1; length >= 1; length -= 1) {
+    suggestions.push(topExact.slice(0, length));
+  }
+
+  return unique(suggestions, limit);
+}
+
 function segmentedCandidates(input, limit) {
   const memo = new Map();
 
@@ -115,6 +127,9 @@ export function getPinyinCandidates(value, limit = 25) {
       .map((item) => item.w),
     limit,
   );
+  const exact = dict[input] ? direct : [];
+  const associated = dict[input] ? associatedPrefixCandidates(input, exact, limit) : [];
+  if (dict[input]) return unique([...shortcut, ...mixedCandidates(input, limit), ...exact, ...associated], limit);
 
-  return unique([...shortcut, ...mixedCandidates(input, limit), ...direct, ...segmentedCandidates(input, limit)], limit);
+  return unique([...shortcut, ...mixedCandidates(input, limit), ...exact, ...associated, ...direct, ...segmentedCandidates(input, limit)], limit);
 }

@@ -54,8 +54,16 @@ function targetPunctuation(mark, language) {
   return mark === "？" || mark === "?" ? "?" : mark === "！" || mark === "!" ? "!" : ".";
 }
 
-function englishCandidate(value) {
+function properEnglishCandidate(zh) {
+  const firstDefinition = cedictTranslations[zh]?.[0];
+  const match = firstDefinition?.match(/^([A-Z][A-Za-z .'-]{1,40})(?:,|$)/);
+  return match?.[1]?.trim() ?? "";
+}
+
+function englishCandidate(value, topChineseCandidate) {
   if (!value) return "";
+  const properEnglish = topChineseCandidate ? properEnglishCandidate(topChineseCandidate) : "";
+  if (properEnglish) return properEnglish;
   if (value.toLowerCase() === "pisa") return "Pizza";
   return value[0].toUpperCase() + value.slice(1);
 }
@@ -139,8 +147,8 @@ export function App() {
   }
 
   const visibleCandidates = useMemo(() => {
-    const english = englishCandidate(query);
     const chineseCandidates = getPinyinCandidates(query).map((zh) => ({ zh, kind: "zh" }));
+    const english = englishCandidate(query, chineseCandidates[0]?.zh);
     const matches = english
       ? [chineseCandidates[0], { zh: english, kind: "en" }, ...chineseCandidates.slice(1)].filter(Boolean)
       : chineseCandidates;
