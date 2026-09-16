@@ -15,6 +15,7 @@ Acceptance criteria:
 - Backspace deletes pinyin query text first, then committed Chinese text when the query is empty.
 - ASCII punctuation maps to Chinese punctuation and can be committed into the draft.
 - The editor supports native select all, selected-text deletion, cursor movement, line breaks, and one-character deletion for committed Chinese text.
+- Pressing Enter without active pinyin creates a new bilingual line group rather than stacking Chinese lines above one shared translation.
 - The placeholder says `用英文输入法打出拼音...`.
 - `npm run build` passes.
 - `npm run test:sites` passes.
@@ -43,7 +44,8 @@ Acceptance criteria:
 - Unknown committed sentences request `/api/translate` through the server.
 - The browser never exposes provider API keys.
 - API response updates the committed sentence translation below the Chinese line.
-- Every committed Chinese modification shows a long horizontal shimmer before the latest secondary-language translation appears.
+- Every committed Chinese modification shows a long square-ended horizontal shimmer before the latest secondary-language translation appears.
+- The latest secondary-language translation appears with a decode-style typing reveal.
 - Failed API responses leave the Chinese draft intact and keep typing usable.
 - Translation requests are debounced and do not fire for every keystroke.
 - Verify with at least one unknown full sentence on production.

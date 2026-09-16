@@ -50,7 +50,7 @@ Figma references were provided during earlier implementation for the window stru
 
 9. The Chinese editor behaves like a general text field for committed text. The user can select all, delete selections, move the cursor with arrow keys, insert line breaks, and delete one character at a time using normal browser text-editing behavior.
 
-10. While the user is composing pinyin, the pinyin composition text appears after the current Chinese text rather than in a separate permanent field. If the user inserts a line break, composition continues from the current cursor position on that line.
+10. While the user is composing pinyin, the pinyin composition text appears after the current Chinese text rather than in a separate permanent field.
 
 11. While the editor contains Latin-letter pinyin composition, the candidate picker shows up to five Chinese candidate options.
 
@@ -64,13 +64,13 @@ Figma references were provided during earlier implementation for the window stru
 
 15. Arrow keys do not modify selection state when no candidates are visible and instead preserve ordinary text-field cursor movement.
 
-16. Pressing Space or Enter with visible candidates commits the selected candidate and clears the pinyin query. When no pinyin query is active, Enter inserts a normal line break.
+16. Pressing Space or Enter with visible candidates commits the selected candidate and clears the pinyin query. When no pinyin query is active, Enter creates a new bilingual line group: a new Chinese editing line with its own secondary-language line below it.
 
 17. Clicking a candidate commits that candidate and returns focus to the editor.
 
-18. Committed candidates insert at the current cursor or replace the current selection in the Chinese draft. They do not create a new visual line or a separate note item for each word unless the user explicitly inserted a line break.
+18. Committed candidates insert at the current cursor or replace the current selection in the active Chinese line. They do not create a new visual line or a separate note item for each word unless the user explicitly creates a new bilingual line group.
 
-19. The written Chinese text and its secondary-language translation are displayed as one bilingual pair: Chinese on the first line, translation directly below.
+19. Each written Chinese sentence or line is displayed as one bilingual pair: Chinese on the first line, translation directly below. Multiple Chinese lines must not stack above a single shared translation line.
 
 20. Backspace behaves like a text editor:
    - If the pinyin query contains characters, Backspace edits the query normally.
@@ -95,7 +95,9 @@ Figma references were provided during earlier implementation for the window stru
 
 24. Translation requests are debounced so typing does not call the API for every keystroke. The user should be able to keep typing while translation is pending.
 
-25. Every committed Chinese modification first shows a long horizontal shimmer in the secondary-language line, then replaces the shimmer with the latest translation once it is available.
+25. Every committed Chinese modification first shows a long horizontal shimmer in the secondary-language line, then replaces the shimmer with the latest translation once it is available. The shimmer is rectangular with square ends, not a pill.
+
+25a. When the latest translation appears, the secondary-language text uses a decode-style typing reveal: characters briefly cycle through alternate symbols before settling into the final translation.
 
 26. When a committed Chinese sentence has a full-sentence translation, the line below the Chinese draft displays that full-sentence translation, not only per-word dictionary glosses.
 

@@ -29,18 +29,50 @@ const punctuationMap = {
   "(": "（",
   ")": "）",
 };
+const scrambleChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$%&";
+
+function ScrambleText({ text }) {
+  const [display, setDisplay] = useState(text);
+
+  useEffect(() => {
+    if (!text) {
+      setDisplay("");
+      return undefined;
+    }
+
+    let frame = 0;
+    const totalFrames = Math.max(18, Math.min(42, text.length * 2));
+    const interval = window.setInterval(() => {
+      frame += 1;
+      const locked = Math.floor((frame / totalFrames) * text.length);
+      setDisplay(text.split("").map((char, index) => {
+        if (char === " " || index < locked) return char;
+        return scrambleChars[(frame + index * 7) % scrambleChars.length];
+      }).join(""));
+      if (frame >= totalFrames) {
+        window.clearInterval(interval);
+        setDisplay(text);
+      }
+    }, 28);
+
+    return () => window.clearInterval(interval);
+  }, [text]);
+
+  return display;
+}
 
 export function App() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
-  const [draft, setDraft] = useState("");
+  const [draftLines, setDraftLines] = useState([""]);
   const [translations, setTranslations] = useState({});
-  const [isTranslationLoading, setIsTranslationLoading] = useState(false);
+  const [loadingLines, setLoadingLines] = useState({});
+  const [activeLine, setActiveLine] = useState(0);
   const [windowSize, setWindowSize] = useState({ width: 978, height: 520 });
   const [resizing, setResizing] = useState(false);
   const [secondaryLanguage, setSecondaryLanguage] = useState("en");
   const [isSecondaryMenuOpen, setIsSecondaryMenuOpen] = useState(false);
-  const inputRef = useRef(null);
+  const inputRefs = useRef([]);
   const resizeStart = useRef(null);
 
   function translationFor(zh, language) {
@@ -62,19 +94,21 @@ export function App() {
   useEffect(() => setSelected(0), [query]);
 
   useEffect(() => {
-    if (!draft) {
-      setIsTranslationLoading(false);
+    const filledLines = draftLines.filter(Boolean);
+    if (!filledLines.length) {
+      setLoadingLines({});
       return undefined;
     }
 
-    setIsTranslationLoading(true);
-    const pending = [...new Set([...getPinyinCandidates(query), draft].filter(Boolean))]
+    const lineKeys = Object.fromEntries(draftLines.map((line, index) => [index, Boolean(line)]));
+    setLoadingLines(lineKeys);
+    const pending = [...new Set([...getPinyinCandidates(query), ...filledLines].filter(Boolean))]
       .filter((zh) => !localTranslations[zh]?.[secondaryLanguage]
         && !(secondaryLanguage === "en" && cedictTranslations[zh]?.length)
         && !translations[`${secondaryLanguage}:${zh}`]);
 
     if (!pending.length) {
-      const settle = window.setTimeout(() => setIsTranslationLoading(false), 360);
+      const settle = window.setTimeout(() => setLoadingLines({}), 360);
       return () => window.clearTimeout(settle);
     }
 
@@ -97,12 +131,12 @@ export function App() {
       } catch (error) {
         if (error.name !== "AbortError") console.warn("Translation service is unavailable.");
       } finally {
-        if (!controller.signal.aborted) setIsTranslationLoading(false);
+        if (!controller.signal.aborted) setLoadingLines({});
       }
     }, 300);
 
     return () => { window.clearTimeout(debounce); controller.abort(); };
-  }, [query, draft, secondaryLanguage]);
+  }, [query, draftLines, secondaryLanguage]);
 
   useEffect(() => {
     function resize(event) {
@@ -117,14 +151,15 @@ export function App() {
   }, []);
 
   function replaceDraftSelection(text) {
-    const editor = inputRef.current;
-    const start = editor?.selectionStart ?? draft.length;
+    const editor = inputRefs.current[activeLine];
+    const currentLine = draftLines[activeLine] ?? "";
+    const start = editor?.selectionStart ?? currentLine.length;
     const end = editor?.selectionEnd ?? start;
-    const next = `${draft.slice(0, start)}${text}${draft.slice(end)}`;
-    setDraft(next);
+    const next = `${currentLine.slice(0, start)}${text}${currentLine.slice(end)}`;
+    setDraftLines((current) => current.map((line, index) => (index === activeLine ? next : line)));
     requestAnimationFrame(() => {
-      inputRef.current?.focus();
-      inputRef.current?.setSelectionRange(start + text.length, start + text.length);
+      inputRefs.current[activeLine]?.focus();
+      inputRefs.current[activeLine]?.setSelectionRange(start + text.length, start + text.length);
     });
   }
 
@@ -139,16 +174,34 @@ export function App() {
     if (event.key === "ArrowDown" && visibleCandidates.length) { event.preventDefault(); setSelected((current) => (current + 1) % visibleCandidates.length); }
     else if (event.key === "ArrowUp" && visibleCandidates.length) { event.preventDefault(); setSelected((current) => (current - 1 + visibleCandidates.length) % visibleCandidates.length); }
     else if ((event.key === "Enter" || event.key === " ") && query && visibleCandidates.length) { event.preventDefault(); commit(); }
+    else if (event.key === "Enter" && !query) {
+      event.preventDefault();
+      setDraftLines((current) => {
+        const next = [...current];
+        next.splice(activeLine + 1, 0, "");
+        return next;
+      });
+      const nextLine = activeLine + 1;
+      setActiveLine(nextLine);
+      requestAnimationFrame(() => inputRefs.current[nextLine]?.focus());
+    }
     else if (/^[1-5]$/.test(event.key) && visibleCandidates[Number(event.key) - 1]) { event.preventDefault(); commit(visibleCandidates[Number(event.key) - 1]); }
     else if (punctuationMap[event.key]) { event.preventDefault(); commit(query ? visibleCandidates[selected] : null, punctuationMap[event.key]); }
     else if (event.key === "Backspace" && query) { event.preventDefault(); setQuery((current) => current.slice(0, -1)); }
+    else if (event.key === "Backspace" && !query && !draftLines[activeLine] && draftLines.length > 1) {
+      event.preventDefault();
+      const previousLine = Math.max(0, activeLine - 1);
+      setDraftLines((current) => current.filter((_, index) => index !== activeLine));
+      setActiveLine(previousLine);
+      requestAnimationFrame(() => inputRefs.current[previousLine]?.focus());
+    }
     else if (/^[a-z]$/i.test(event.key) && !event.metaKey && !event.ctrlKey && !event.altKey) { event.preventDefault(); setQuery((current) => `${current}${event.key.toLowerCase()}`); }
   }
 
-  function handleDraftChange(event) {
+  function handleDraftChange(event, lineIndex) {
     const next = event.target.value;
     const pinyin = next.match(/[a-z]+/gi)?.join("").toLowerCase() ?? "";
-    setDraft(next.replace(/[a-z]+/gi, ""));
+    setDraftLines((current) => current.map((line, index) => (index === lineIndex ? next.replace(/[a-z]+/gi, "") : line)));
     if (pinyin) setQuery((current) => `${current}${pinyin}`);
   }
 
@@ -169,15 +222,6 @@ export function App() {
       secondary: item[secondaryLanguage] ?? item.en ?? translationFor(item.zh, secondaryLanguage),
     };
   }
-
-  const draftPair = translationPair({
-    zh: draft,
-    en: translationFor(draft, "en"),
-    ja: translationFor(draft, "ja"),
-  });
-  const draftSecondary = isTranslationLoading && draft
-    ? <span className="translation-shimmer" aria-label="Translating" />
-    : draftPair.secondary;
 
   function secondaryLanguageCombo() {
     const selectedLanguage = secondaryLanguages.find((language) => language.id === secondaryLanguage);
@@ -228,11 +272,32 @@ export function App() {
         <section className="writing-area">
           <div className="composition-editor">
             <div className="written-lines" aria-live="polite">
-              <p>
-                <textarea ref={inputRef} value={draft} onChange={handleDraftChange} onKeyDown={handleKeyDown} placeholder="用英文输入法打出拼音…" aria-label="中文正文" autoComplete="off" spellCheck="false" />
-                {query && <span className="pinyin-composition">{query}</span>}
-                {draft && <span>{draftSecondary}</span>}
-              </p>
+              {draftLines.map((line, index) => {
+                const secondary = translationPair({
+                  zh: line,
+                  en: translationFor(line, "en"),
+                  ja: translationFor(line, "ja"),
+                }).secondary;
+                return (
+                  <p className="bilingual-line" key={index}>
+                    <textarea
+                      ref={(element) => { inputRefs.current[index] = element; }}
+                      value={line}
+                      onChange={(event) => handleDraftChange(event, index)}
+                      onFocus={() => setActiveLine(index)}
+                      onKeyDown={handleKeyDown}
+                      placeholder={index === 0 ? "用英文输入法打出拼音…" : ""}
+                      aria-label={`中文正文第 ${index + 1} 行`}
+                      autoComplete="off"
+                      spellCheck="false"
+                    />
+                    {query && activeLine === index && <span className="pinyin-composition">{query}</span>}
+                    {line && (loadingLines[index]
+                      ? <span className="translation-shimmer" aria-label="Translating" />
+                      : <span><ScrambleText text={secondary} /></span>)}
+                  </p>
+                );
+              })}
             </div>
             <div className="candidate-picker" role="listbox" aria-label="双语候选">
               {visibleCandidates.map((candidate, index) => {
