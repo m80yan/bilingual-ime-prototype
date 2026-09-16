@@ -41,6 +41,17 @@ function splitChineseSegments(text) {
   return matches.map((segment) => segment.trim()).filter(Boolean);
 }
 
+function splitFinalPunctuation(text) {
+  const match = text.match(/^(.*?)([。！？!?])$/);
+  return match ? { body: match[1], punctuation: match[2] } : { body: text, punctuation: "" };
+}
+
+function targetPunctuation(mark, language) {
+  if (!mark) return "";
+  if (language === "ja") return mark === "？" || mark === "?" ? "？" : mark === "！" || mark === "!" ? "！" : "。";
+  return mark === "？" || mark === "?" ? "?" : mark === "！" || mark === "!" ? "!" : ".";
+}
+
 function englishCandidate(value) {
   if (!value) return "";
   if (value.toLowerCase() === "pisa") return "Pizza";
@@ -113,6 +124,12 @@ export function App() {
   const resizeStart = useRef(null);
 
   function translationFor(zh, language) {
+    const { body, punctuation } = splitFinalPunctuation(zh);
+    const baseTranslation = body !== zh ? translationFor(body, language) : null;
+    if (baseTranslation && baseTranslation !== "…" && baseTranslation !== "翻訳中…") {
+      return `${baseTranslation.replace(/[.!?。！？]$/, "")}${targetPunctuation(punctuation, language)}`;
+    }
+
     return translations[`${language}:${zh}`]
       ?? localTranslations[zh]?.[language]
       ?? (language === "en" && cedictTranslations[zh]?.length ? cedictTranslations[zh].join("; ") : null)
@@ -153,10 +170,12 @@ export function App() {
     }
 
     const previousSegments = previousDraftLines.current.flatMap(splitChineseSegments);
+    const previousBodies = previousSegments.map((segment) => splitFinalPunctuation(segment).body);
     const segmentKeys = {};
     draftLines.forEach((line, lineIndex) => {
       splitChineseSegments(line).forEach((segment) => {
-        segmentKeys[segment] = isChineseText(segment) && !previousSegments.includes(segment);
+        const body = splitFinalPunctuation(segment).body;
+        segmentKeys[segment] = isChineseText(segment) && !previousSegments.includes(segment) && !previousBodies.includes(body);
       });
     });
     previousSegments
@@ -166,6 +185,7 @@ export function App() {
     setLoadingSegments(segmentKeys);
     const pending = [...new Set([...getPinyinCandidates(query), ...filledSegments].filter(Boolean))]
       .filter((zh) => !localTranslations[zh]?.[secondaryLanguage]
+        && !(splitFinalPunctuation(zh).body !== zh && translationFor(splitFinalPunctuation(zh).body, secondaryLanguage) !== (secondaryLanguage === "en" ? "…" : "翻訳中…"))
         && !(secondaryLanguage === "en" && cedictTranslations[zh]?.length)
         && !translations[`${secondaryLanguage}:${zh}`]);
 
