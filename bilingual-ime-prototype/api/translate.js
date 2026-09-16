@@ -1,4 +1,4 @@
-import { phraseTranslations } from "./domain-glossary.js";
+import { getRelevantGlossary, phraseTranslations } from "./domain-glossary.js";
 
 const supportedLanguages = {
   en: "natural English",
@@ -47,12 +47,13 @@ export default async function handler(request, response) {
   if (!remoteTexts.length) return json(response, { translations: localResults });
   if (!process.env.OPENAI_API_KEY) return json(response, { error: "Translation service is not configured" }, 503);
 
+  const relevantGlossary = getRelevantGlossary(remoteTexts, targetLanguage);
   const prompt = [
     `Translate every Simplified Chinese item into ${supportedLanguages[targetLanguage]}.`,
     "Use concise, natural wording for a bilingual writing/IME demo. Do not translate word-for-word when a native phrase is better.",
     "Prefer everyday American English for English output. Keep professional UI/UX and product-design terms precise when the sentence is about design.",
-    "Relevant domains include UI/UX design, product design, design systems, interaction design, visual design, cars, movies, daily life, and English learning.",
-    `Use this glossary when relevant: ${JSON.stringify(glossary)}`,
+    "Relevant domains include UI/UX design, product design, design systems, interaction design, visual design, cars, movies, history, daily life, and English learning.",
+    `Use these matched glossary entries when relevant: ${JSON.stringify(relevantGlossary)}`,
     "Return only a JSON object whose keys are the original Chinese strings and values are their translations.",
     JSON.stringify(remoteTexts),
   ].join("\n");
