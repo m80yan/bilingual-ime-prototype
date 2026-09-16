@@ -29,9 +29,20 @@ const punctuationMap = {
   "(": "（",
   ")": "）",
 };
+const PAGE_SIZE = 5;
 const scrambleChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$%&";
 
-function ScrambleText({ text }) {
+function isChineseText(text) {
+  return /[\u3400-\u9fff]/.test(text);
+}
+
+function englishCandidate(value) {
+  if (!value) return "";
+  if (value.toLowerCase() === "pisa") return "Pizza";
+  return value[0].toUpperCase() + value.slice(1);
+}
+
+function ScrambleText({ text, onDone }) {
   const [display, setDisplay] = useState(text);
 
   useEffect(() => {
@@ -52,6 +63,7 @@ function ScrambleText({ text }) {
       if (frame >= totalFrames) {
         window.clearInterval(interval);
         setDisplay(text);
+        onDone?.();
       }
     }, 28);
 
@@ -61,9 +73,18 @@ function ScrambleText({ text }) {
   return display;
 }
 
+function StableTranslation({ lineKey, text }) {
+  const [played, setPlayed] = useState({});
+
+  if (!text) return null;
+  if (played[lineKey] === text) return text;
+  return <ScrambleText text={text} onDone={() => setPlayed((current) => ({ ...current, [lineKey]: text }))} />;
+}
+
 export function App() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
+  const [candidatePage, setCandidatePage] = useState(0);
   const [draftLines, setDraftLines] = useState([""]);
   const [translations, setTranslations] = useState({});
   const [loadingLines, setLoadingLines] = useState({});
@@ -73,6 +94,7 @@ export function App() {
   const [secondaryLanguage, setSecondaryLanguage] = useState("en");
   const [isSecondaryMenuOpen, setIsSecondaryMenuOpen] = useState(false);
   const inputRefs = useRef([]);
+  const previousDraftLines = useRef([""]);
   const resizeStart = useRef(null);
 
   function translationFor(zh, language) {
@@ -83,24 +105,34 @@ export function App() {
   }
 
   const visibleCandidates = useMemo(() => {
-    const matches = getPinyinCandidates(query);
-    return matches.map((zh) => ({
-      zh,
-      en: translationFor(zh, "en"),
-      ja: translationFor(zh, "ja"),
+    const english = englishCandidate(query);
+    const chineseCandidates = getPinyinCandidates(query).map((zh) => ({ zh, kind: "zh" }));
+    const matches = english
+      ? [chineseCandidates[0], { zh: english, kind: "en" }, ...chineseCandidates.slice(1)].filter(Boolean)
+      : chineseCandidates;
+    return matches.map((candidate) => ({
+      ...candidate,
+      en: candidate.kind === "en" ? "English" : translationFor(candidate.zh, "en"),
+      ja: candidate.kind === "en" ? "英語" : translationFor(candidate.zh, "ja"),
     }));
   }, [query, translations]);
+  const pageCount = Math.max(1, Math.ceil(visibleCandidates.length / PAGE_SIZE));
+  const pagedCandidates = visibleCandidates.slice(candidatePage * PAGE_SIZE, candidatePage * PAGE_SIZE + PAGE_SIZE);
 
-  useEffect(() => setSelected(0), [query]);
+  useEffect(() => { setSelected(0); setCandidatePage(0); }, [query]);
 
   useEffect(() => {
-    const filledLines = draftLines.filter(Boolean);
+    const filledLines = draftLines.filter(isChineseText);
     if (!filledLines.length) {
       setLoadingLines({});
       return undefined;
     }
 
-    const lineKeys = Object.fromEntries(draftLines.map((line, index) => [index, Boolean(line)]));
+    const lineKeys = Object.fromEntries(draftLines.map((line, index) => [
+      index,
+      Boolean(line) && isChineseText(line) && line !== previousDraftLines.current[index],
+    ]));
+    previousDraftLines.current = draftLines;
     setLoadingLines(lineKeys);
     const pending = [...new Set([...getPinyinCandidates(query), ...filledLines].filter(Boolean))]
       .filter((zh) => !localTranslations[zh]?.[secondaryLanguage]
@@ -163,7 +195,7 @@ export function App() {
     });
   }
 
-  function commit(candidate = visibleCandidates[selected], suffix = "") {
+  function commit(candidate = pagedCandidates[selected], suffix = "") {
     if (!candidate && !suffix) return;
     replaceDraftSelection(`${candidate?.zh ?? ""}${suffix}`);
     setQuery("");
@@ -171,9 +203,11 @@ export function App() {
 
   function handleKeyDown(event) {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
-    if (event.key === "ArrowDown" && visibleCandidates.length) { event.preventDefault(); setSelected((current) => (current + 1) % visibleCandidates.length); }
-    else if (event.key === "ArrowUp" && visibleCandidates.length) { event.preventDefault(); setSelected((current) => (current - 1 + visibleCandidates.length) % visibleCandidates.length); }
-    else if ((event.key === "Enter" || event.key === " ") && query && visibleCandidates.length) { event.preventDefault(); commit(); }
+    if (event.key === "ArrowDown" && pagedCandidates.length) { event.preventDefault(); setSelected((current) => (current + 1) % pagedCandidates.length); }
+    else if (event.key === "ArrowUp" && pagedCandidates.length) { event.preventDefault(); setSelected((current) => (current - 1 + pagedCandidates.length) % pagedCandidates.length); }
+    else if (event.key === "-" && query && pageCount > 1) { event.preventDefault(); setCandidatePage((current) => (current - 1 + pageCount) % pageCount); setSelected(0); }
+    else if (event.key === "=" && query && pageCount > 1) { event.preventDefault(); setCandidatePage((current) => (current + 1) % pageCount); setSelected(0); }
+    else if ((event.key === "Enter" || event.key === " ") && query && pagedCandidates.length) { event.preventDefault(); commit(); }
     else if (event.key === "Enter" && !query) {
       event.preventDefault();
       setDraftLines((current) => {
@@ -185,8 +219,8 @@ export function App() {
       setActiveLine(nextLine);
       requestAnimationFrame(() => inputRefs.current[nextLine]?.focus());
     }
-    else if (/^[1-5]$/.test(event.key) && visibleCandidates[Number(event.key) - 1]) { event.preventDefault(); commit(visibleCandidates[Number(event.key) - 1]); }
-    else if (punctuationMap[event.key]) { event.preventDefault(); commit(query ? visibleCandidates[selected] : null, punctuationMap[event.key]); }
+    else if (/^[1-5]$/.test(event.key) && pagedCandidates[Number(event.key) - 1]) { event.preventDefault(); commit(pagedCandidates[Number(event.key) - 1]); }
+    else if (punctuationMap[event.key]) { event.preventDefault(); commit(query ? pagedCandidates[selected] : null, punctuationMap[event.key]); }
     else if (event.key === "Backspace" && query) { event.preventDefault(); setQuery((current) => current.slice(0, -1)); }
     else if (event.key === "Backspace" && !query && !draftLines[activeLine] && draftLines.length > 1) {
       event.preventDefault();
@@ -201,7 +235,16 @@ export function App() {
   function handleDraftChange(event, lineIndex) {
     const next = event.target.value;
     const pinyin = next.match(/[a-z]+/gi)?.join("").toLowerCase() ?? "";
-    setDraftLines((current) => current.map((line, index) => (index === lineIndex ? next.replace(/[a-z]+/gi, "") : line)));
+    if (query && next.includes("=") && pageCount > 1) {
+      setCandidatePage((current) => (current + 1) % pageCount);
+      setSelected(0);
+    }
+    if (query && next.includes("-") && pageCount > 1) {
+      setCandidatePage((current) => (current - 1 + pageCount) % pageCount);
+      setSelected(0);
+    }
+    const controlPattern = query ? /[a-z=-]+/gi : /[a-z]+/gi;
+    setDraftLines((current) => current.map((line, index) => (index === lineIndex ? next.replace(controlPattern, "") : line)));
     if (pinyin) setQuery((current) => `${current}${pinyin}`);
   }
 
@@ -294,13 +337,13 @@ export function App() {
                     {query && activeLine === index && <span className="pinyin-composition">{query}</span>}
                     {line && (loadingLines[index]
                       ? <span className="translation-shimmer" aria-label="Translating" />
-                      : <span><ScrambleText text={secondary} /></span>)}
+                      : <span><StableTranslation lineKey={index} text={secondary} /></span>)}
                   </p>
                 );
               })}
             </div>
             <div className="candidate-picker" role="listbox" aria-label="双语候选">
-              {visibleCandidates.map((candidate, index) => {
+              {pagedCandidates.map((candidate, index) => {
                 const pair = translationPair(candidate);
                 return <button key={`${candidate.zh}-${index}`} className={selected === index ? "candidate selected" : "candidate"} role="option" aria-selected={selected === index} onMouseEnter={() => setSelected(index)} onClick={() => commit(candidate)}><b>{index + 1}.</b><span><strong>{pair.primary}</strong><em>{pair.secondary}</em></span></button>;
               })}

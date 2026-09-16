@@ -10,6 +10,8 @@ Acceptance criteria:
 
 - Pinyin input shows Chinese candidates for Latin-letter queries.
 - Pressing `1`-`5` commits the corresponding visible candidate.
+- `-` and `=` page through candidate pages when more than five candidates are available.
+- Candidate results include a pure-English option for the typed Latin input.
 - Pressing Space or Enter commits the selected visible candidate.
 - Committed candidates append to one Chinese draft instead of creating one line per word.
 - Backspace deletes pinyin query text first, then committed Chinese text when the query is empty.
@@ -46,6 +48,7 @@ Acceptance criteria:
 - API response updates the committed sentence translation below the Chinese line.
 - Every committed Chinese modification shows a long square-ended horizontal shimmer before the latest secondary-language translation appears.
 - The latest secondary-language translation appears with a decode-style typing reveal.
+- A settled sentence-final bilingual line does not replay the typing reveal when the user edits later text.
 - Failed API responses leave the Chinese draft intact and keep typing usable.
 - Translation requests are debounced and do not fire for every keystroke.
 - Verify with at least one unknown full sentence on production.

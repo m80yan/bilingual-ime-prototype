@@ -29,7 +29,7 @@ function segmentedCandidates(input, limit) {
   return bestFrom(0).map((path) => path.text).filter(Boolean).slice(0, limit);
 }
 
-export function getPinyinCandidates(value, limit = 5) {
+export function getPinyinCandidates(value, limit = 25) {
   const input = value.toLowerCase().replace(/[^a-z]/g, "");
   if (!input) return [];
 

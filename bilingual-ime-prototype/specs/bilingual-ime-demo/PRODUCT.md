@@ -60,7 +60,9 @@ Figma references were provided during earlier implementation for the window stru
 
 13. Candidate numbering uses 1-5. Pressing a number commits the matching candidate when it exists.
 
-14. Arrow Down moves selection to the next visible candidate. Arrow Up moves selection to the previous visible candidate. Selection wraps around when candidates are visible.
+14. Arrow Down moves selection to the next visible candidate. Arrow Up moves selection to the previous visible candidate. Selection wraps around when candidates are visible. When more than five candidates exist, `-` moves to the previous candidate page and `=` moves to the next candidate page.
+
+14a. The candidate list includes a pure-English option for the active Latin input so the user can intentionally commit English text without switching out of the web IME. A standalone English candidate is title-cased, for example `pisa` may offer `Pizza`; in ordinary English prose, `pizza` is lowercase unless it begins a sentence or is part of a proper name.
 
 15. Arrow keys do not modify selection state when no candidates are visible and instead preserve ordinary text-field cursor movement.
 
@@ -98,6 +100,8 @@ Figma references were provided during earlier implementation for the window stru
 25. Every committed Chinese modification first shows a long horizontal shimmer in the secondary-language line, then replaces the shimmer with the latest translation once it is available. The shimmer is rectangular with square ends, not a pill.
 
 25a. When the latest translation appears, the secondary-language text uses a decode-style typing reveal: characters briefly cycle through alternate symbols before settling into the final translation.
+
+25b. Once a Chinese line ends with sentence-final punctuation such as `。`, `！`, or `？`, its secondary-language line is considered settled. Later edits on following lines must not replay the settled line's decode typing effect.
 
 26. When a committed Chinese sentence has a full-sentence translation, the line below the Chinese draft displays that full-sentence translation, not only per-word dictionary glosses.
 
