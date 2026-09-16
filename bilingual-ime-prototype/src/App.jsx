@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getPinyinCandidates } from "./pinyinEngine";
+import cedictTranslations from "./data/cedict-en.json";
 
 const localTranslations = {
   "我": { en: "I; me", ja: "私" }, "你": { en: "you", ja: "あなた" }, "他": { en: "he; him", ja: "彼" },
@@ -33,7 +34,8 @@ export function App() {
   function translationFor(zh, language) {
     return translations[`${language}:${zh}`]
       ?? localTranslations[zh]?.[language]
-      ?? (language === "en" ? "Translating…" : "翻訳中…");
+      ?? (language === "en" && cedictTranslations[zh]?.length ? cedictTranslations[zh].join("; ") : null)
+      ?? (language === "en" ? "…" : "翻訳中…");
   }
 
   const visibleCandidates = useMemo(() => {
@@ -49,12 +51,14 @@ export function App() {
 
   useEffect(() => {
     const pending = getPinyinCandidates(query)
-      .filter((zh) => !localTranslations[zh]?.[secondaryLanguage] && !translations[`${secondaryLanguage}:${zh}`]);
+      .filter((zh) => !localTranslations[zh]?.[secondaryLanguage]
+        && !(secondaryLanguage === "en" && cedictTranslations[zh]?.length)
+        && !translations[`${secondaryLanguage}:${zh}`]);
 
     if (!pending.length) return undefined;
 
     const controller = new AbortController();
-    async function translateCandidates() {
+    const debounce = window.setTimeout(async () => {
       try {
         const response = await fetch("/api/translate", {
           method: "POST",
@@ -72,11 +76,9 @@ export function App() {
       } catch (error) {
         if (error.name !== "AbortError") console.warn("Translation service is unavailable.");
       }
-    }
+    }, 300);
 
-    translateCandidates();
-
-    return () => controller.abort();
+    return () => { window.clearTimeout(debounce); controller.abort(); };
   }, [query, secondaryLanguage]);
 
   useEffect(() => {
