@@ -420,7 +420,7 @@ export function App() {
                       onKeyUp={updateCandidatePosition}
                       onClick={updateCandidatePosition}
                       onSelect={updateCandidatePosition}
-                      placeholder={index === 0 ? "用英文输入法打出拼音…" : ""}
+                      placeholder={index === 0 && !(query && activeLine === index) ? "用英文输入法打出拼音…" : ""}
                       aria-label={`中文正文第 ${index + 1} 行`}
                       autoComplete="off"
                       spellCheck="false"
