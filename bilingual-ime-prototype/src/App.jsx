@@ -271,22 +271,21 @@ export function App() {
     const editorRect = editor.getBoundingClientRect();
     const left = markerRect.right - editorRect.left + editor.scrollLeft;
     const compositionTop = markerRect.top - editorRect.top;
-    const caretTop = compositionTop - 3;
+    const caretTop = compositionTop - 6;
     const candidateTop = markerRect.bottom - editorRect.top + 18;
-    const clampedLeft = Math.max(0, Math.min(left, editor.clientWidth - 215));
 
     document.body.removeChild(mirror);
     setCompositionPosition({
-      left: Math.max(0, Math.min(left, editor.clientWidth - 60)),
+      left,
       top: Math.max(0, compositionTop),
     });
     setCaretPosition({
-      left: Math.max(0, Math.min(left, editor.clientWidth - 2)),
+      left,
       top: Math.max(0, caretTop),
     });
     setCandidatePosition({
-      left: clampedLeft,
-      top: Math.max(8, Math.min(candidateTop, editor.clientHeight - 240)),
+      left,
+      top: Math.max(0, candidateTop),
     });
   }
 
