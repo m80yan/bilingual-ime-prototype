@@ -91,6 +91,7 @@ export function App() {
   const [selected, setSelected] = useState(0);
   const [candidatePage, setCandidatePage] = useState(0);
   const [draftLines, setDraftLines] = useState([""]);
+  const [softBreaks, setSoftBreaks] = useState([false]);
   const [translations, setTranslations] = useState({});
   const [playedTranslations, setPlayedTranslations] = useState({});
   const [loadingSegments, setLoadingSegments] = useState({});
@@ -213,6 +214,7 @@ export function App() {
     if (allChineseSelected) {
       setAllChineseSelected(false);
       setDraftLines([text]);
+      setSoftBreaks([false]);
       setActiveLine(0);
       requestAnimationFrame(() => {
         inputRefs.current[0]?.focus();
@@ -271,7 +273,6 @@ export function App() {
     const editorRect = editor.getBoundingClientRect();
     const left = markerRect.right - editorRect.left + editor.scrollLeft;
     const compositionTop = markerRect.top - editorRect.top;
-    const caretTop = compositionTop - 6;
     const candidateTop = markerRect.bottom + 18;
 
     document.body.removeChild(mirror);
@@ -281,7 +282,7 @@ export function App() {
     });
     setCaretPosition({
       left,
-      top: Math.max(0, caretTop),
+      top: Math.max(0, compositionTop),
     });
     setCandidatePosition({
       left: markerRect.right,
@@ -313,6 +314,7 @@ export function App() {
       event.preventDefault();
       navigator.clipboard?.writeText(draftLines.join("\n"));
       setDraftLines([""]);
+      setSoftBreaks([false]);
       setAllChineseSelected(false);
       setActiveLine(0);
       requestAnimationFrame(() => inputRefs.current[0]?.focus());
@@ -321,6 +323,7 @@ export function App() {
     if (allChineseSelected && (event.key === "Backspace" || event.key === "Delete")) {
       event.preventDefault();
       setDraftLines([""]);
+      setSoftBreaks([false]);
       setAllChineseSelected(false);
       setActiveLine(0);
       requestAnimationFrame(() => inputRefs.current[0]?.focus());
@@ -373,6 +376,11 @@ export function App() {
         next.splice(activeLine + 1, 0, after);
         return next;
       });
+      setSoftBreaks((current) => {
+        const next = [...current];
+        next.splice(activeLine + 1, 0, true);
+        return next;
+      });
       const nextLine = activeLine + 1;
       setActiveLine(nextLine);
       requestAnimationFrame(() => {
@@ -398,6 +406,7 @@ export function App() {
       event.preventDefault();
       const previousLine = Math.max(0, activeLine - 1);
       setDraftLines((current) => current.filter((_, index) => index !== activeLine));
+      setSoftBreaks((current) => current.filter((_, index) => index !== activeLine));
       setActiveLine(previousLine);
       requestAnimationFrame(() => inputRefs.current[previousLine]?.focus());
     }
@@ -520,7 +529,11 @@ export function App() {
             <div className="written-lines" aria-live="polite" onScroll={updateCandidatePosition}>
               {draftLines.map((line, index) => {
                 return (
-                  <p className={allChineseSelected ? "bilingual-line all-selected" : "bilingual-line"} key={index}>
+                  <p className={[
+                    "bilingual-line",
+                    allChineseSelected ? "all-selected" : "",
+                    softBreaks[index] ? "soft-break" : "",
+                  ].filter(Boolean).join(" ")} key={index}>
                     <textarea
                       ref={(element) => { inputRefs.current[index] = element; }}
                       value={line}
