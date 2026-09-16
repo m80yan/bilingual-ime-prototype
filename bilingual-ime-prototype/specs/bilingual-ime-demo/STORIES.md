@@ -49,6 +49,7 @@ Acceptance criteria:
 
 - Local phrase translations display immediately when available.
 - Unknown committed sentences request `/api/translate` through the server.
+- The server translation layer includes a small domain glossary for design and UI/UX design terms.
 - The browser never exposes provider API keys.
 - API response updates the committed sentence translation below the Chinese line.
 - Every committed Chinese modification shows a long square-ended horizontal shimmer before the latest secondary-language translation appears.

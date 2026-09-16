@@ -96,8 +96,11 @@ Figma references were provided during earlier implementation for the window stru
 
 23. Translation has a fast local path and a slower AI fallback:
    - Known local phrases and dictionary-backed words display immediately.
+   - The server keeps a small domain glossary for design, UI/UX design, product design, cars, movies, daily life, and English-learning phrases.
    - Unknown full sentences can request the translation API.
    - The browser never receives the OpenAI API key.
+
+23a. For English output, the translation API should prefer concise, natural everyday American English while preserving precise professional terms in UI/UX and product-design contexts.
 
 24. Translation requests are debounced so typing does not call the API for every keystroke. The user should be able to keep typing while translation is pending.
 

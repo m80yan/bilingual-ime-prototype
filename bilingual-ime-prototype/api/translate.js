@@ -3,6 +3,81 @@ const supportedLanguages = {
   ja: "natural Japanese",
 };
 
+const phraseTranslations = {
+  en: {
+    "设计": "design",
+    "设计师": "designer",
+    "产品设计": "product design",
+    "交互设计": "interaction design",
+    "视觉设计": "visual design",
+    "用户体验": "user experience",
+    "用户界面": "user interface",
+    "界面设计": "interface design",
+    "信息架构": "information architecture",
+    "设计系统": "design system",
+    "组件库": "component library",
+    "原型": "prototype",
+    "线框图": "wireframe",
+    "用户流程": "user flow",
+    "用户旅程": "user journey",
+    "可用性测试": "usability testing",
+    "易用性": "usability",
+    "无障碍": "accessibility",
+    "响应式设计": "responsive design",
+    "排版": "typography",
+    "层级": "hierarchy",
+    "留白": "white space",
+    "对齐": "alignment",
+    "一致性": "consistency",
+    "反馈": "feedback",
+    "状态": "state",
+    "空状态": "empty state",
+    "加载状态": "loading state",
+    "错误状态": "error state",
+    "动效": "motion",
+    "微交互": "microinteraction",
+    "设计稿": "design mockup",
+    "高保真": "high fidelity",
+    "低保真": "low fidelity",
+  },
+  ja: {
+    "设计": "デザイン",
+    "设计师": "デザイナー",
+    "产品设计": "プロダクトデザイン",
+    "交互设计": "インタラクションデザイン",
+    "视觉设计": "ビジュアルデザイン",
+    "用户体验": "ユーザー体験",
+    "用户界面": "ユーザーインターフェース",
+    "界面设计": "インターフェースデザイン",
+    "信息架构": "情報設計",
+    "设计系统": "デザインシステム",
+    "组件库": "コンポーネントライブラリ",
+    "原型": "プロトタイプ",
+    "线框图": "ワイヤーフレーム",
+    "用户流程": "ユーザーフロー",
+    "用户旅程": "ユーザージャーニー",
+    "可用性测试": "ユーザビリティテスト",
+    "易用性": "ユーザビリティ",
+    "无障碍": "アクセシビリティ",
+    "响应式设计": "レスポンシブデザイン",
+    "排版": "タイポグラフィ",
+    "层级": "階層",
+    "留白": "余白",
+    "对齐": "整列",
+    "一致性": "一貫性",
+    "反馈": "フィードバック",
+    "状态": "状態",
+    "空状态": "空の状態",
+    "加载状态": "読み込み状態",
+    "错误状态": "エラー状態",
+    "动效": "モーション",
+    "微交互": "マイクロインタラクション",
+    "设计稿": "デザインモックアップ",
+    "高保真": "高忠実度",
+    "低保真": "低忠実度",
+  },
+};
+
 function readOutputText(data) {
   if (typeof data.output_text === "string") return data.output_text;
   return data.output
@@ -36,13 +111,23 @@ export default async function handler(request, response) {
     .slice(0, 5);
 
   if (!supportedLanguages[targetLanguage] || !texts.length) return json(response, { error: "Invalid translation request" }, 400);
+  const glossary = phraseTranslations[targetLanguage] ?? {};
+  const localResults = Object.fromEntries(texts
+    .filter((text) => glossary[text])
+    .map((text) => [text, glossary[text]]));
+  const remoteTexts = texts.filter((text) => !localResults[text]);
+
+  if (!remoteTexts.length) return json(response, { translations: localResults });
   if (!process.env.OPENAI_API_KEY) return json(response, { error: "Translation service is not configured" }, 503);
 
   const prompt = [
     `Translate every Simplified Chinese item into ${supportedLanguages[targetLanguage]}.`,
-    "Keep translations short and natural for an IME candidate list.",
+    "Use concise, natural wording for a bilingual writing/IME demo. Do not translate word-for-word when a native phrase is better.",
+    "Prefer everyday American English for English output. Keep professional UI/UX and product-design terms precise when the sentence is about design.",
+    "Relevant domains include UI/UX design, product design, design systems, interaction design, visual design, cars, movies, daily life, and English learning.",
+    `Use this glossary when relevant: ${JSON.stringify(glossary)}`,
     "Return only a JSON object whose keys are the original Chinese strings and values are their translations.",
-    JSON.stringify(texts),
+    JSON.stringify(remoteTexts),
   ].join("\n");
 
   const openaiResponse = await fetch("https://api.openai.com/v1/responses", {
@@ -70,10 +155,10 @@ export default async function handler(request, response) {
   try {
     const raw = outputText.replace(/^```json\s*|\s*```$/g, "");
     const result = JSON.parse(raw);
-    const translations = Object.fromEntries(texts
+    const translations = Object.fromEntries(remoteTexts
       .filter((text) => typeof result[text] === "string")
       .map((text) => [text, result[text].trim()]));
-    return json(response, { translations });
+    return json(response, { translations: { ...localResults, ...translations } });
   } catch {
     console.error("OpenAI translation response could not be read", outputText);
     return json(response, { error: "Translation response could not be read" }, 502);
