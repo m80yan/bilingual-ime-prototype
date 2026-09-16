@@ -91,16 +91,19 @@ Figma references were provided during earlier implementation for the window stru
    - `:` becomes `：`
    - `(` becomes `（`
    - `)` becomes `）`
+   - `/` and `\` become `、`
 
 22. ASCII punctuation typed while the pinyin query has a selected candidate first commits the selected candidate, then appends the mapped Chinese punctuation, then clears the query.
 
 23. Translation has a fast local path and a slower AI fallback:
    - Known local phrases and dictionary-backed words display immediately.
-   - The server keeps a small domain glossary for design, UI/UX design, product design, cars, movies, daily life, and English-learning phrases.
+   - The server keeps a small domain glossary for design, UI/UX design, product design, Chinese internet-industry slang, cars, movies, daily life, and English-learning phrases.
    - Unknown full sentences can request the translation API.
    - The browser never receives the OpenAI API key.
 
 23a. For English output, the translation API should prefer concise, natural everyday American English while preserving precise professional terms in UI/UX and product-design contexts.
+
+23b. Ambiguous glossary entries may keep separate phrase forms for different domains, such as `对齐` for internet-industry sync-up language and `视觉对齐` for visual alignment.
 
 24. Translation requests are debounced so typing does not call the API for every keystroke. The user should be able to keep typing while translation is pending.
 

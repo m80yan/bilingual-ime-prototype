@@ -28,6 +28,8 @@ const punctuationMap = {
   ":": "：",
   "(": "（",
   ")": "）",
+  "/": "、",
+  "\\": "、",
 };
 const PAGE_SIZE = 7;
 
