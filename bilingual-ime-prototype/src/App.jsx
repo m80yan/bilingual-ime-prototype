@@ -30,7 +30,6 @@ const punctuationMap = {
   ")": "）",
 };
 const PAGE_SIZE = 7;
-const scrambleChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$%&";
 
 function isChineseText(text) {
   return /[\u3400-\u9fff]/.test(text);
@@ -49,34 +48,37 @@ function englishCandidate(value) {
 }
 
 function ScrambleText({ text, onDone }) {
-  const [display, setDisplay] = useState(text);
+  const [visibleCount, setVisibleCount] = useState(0);
 
   useEffect(() => {
     if (!text) {
-      setDisplay("");
+      setVisibleCount(0);
       return undefined;
     }
 
-    let frame = 0;
-    const totalFrames = Math.max(18, Math.min(42, text.length * 2));
+    let index = 0;
+    setVisibleCount(0);
     const interval = window.setInterval(() => {
-      frame += 1;
-      const locked = Math.floor((frame / totalFrames) * text.length);
-      setDisplay(text.split("").map((char, index) => {
-        if (char === " " || index < locked) return char;
-        return scrambleChars[(frame + index * 7) % scrambleChars.length];
-      }).join(""));
-      if (frame >= totalFrames) {
+      index += 1;
+      setVisibleCount(index);
+      if (index >= text.length) {
         window.clearInterval(interval);
-        setDisplay(text);
         onDone?.();
       }
-    }, 28);
+    }, 18);
 
     return () => window.clearInterval(interval);
   }, [text]);
 
-  return display;
+  return (
+    <span className="typing-text">
+      {text.slice(0, visibleCount).split("").map((char, index) => (
+        <span className={index === visibleCount - 1 ? "typing-letter active" : "typing-letter"} key={`${char}-${index}`}>
+          {char}
+        </span>
+      ))}
+    </span>
+  );
 }
 
 function StableTranslation({ text, hasPlayed, onDone }) {
