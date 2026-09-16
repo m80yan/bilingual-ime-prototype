@@ -403,6 +403,50 @@ export function App() {
       event.preventDefault();
       setQuery((current) => `${current.slice(0, queryCursor)}${current.slice(queryCursor + 1)}`);
     }
+    else if (event.key === "Backspace" && !query && activeLine > 0) {
+      const editor = inputRefs.current[activeLine];
+      const start = editor?.selectionStart ?? 0;
+      const end = editor?.selectionEnd ?? start;
+      if (start === 0 && end === 0) {
+        event.preventDefault();
+        const previousLine = activeLine - 1;
+        const previousLength = draftLines[previousLine]?.length ?? 0;
+        setDraftLines((current) => {
+          const next = [...current];
+          next[previousLine] = `${next[previousLine] ?? ""}${next[activeLine] ?? ""}`;
+          next.splice(activeLine, 1);
+          return next;
+        });
+        setSoftBreaks((current) => current.filter((_, index) => index !== activeLine));
+        setActiveLine(previousLine);
+        requestAnimationFrame(() => {
+          inputRefs.current[previousLine]?.focus();
+          inputRefs.current[previousLine]?.setSelectionRange(previousLength, previousLength);
+          updateCandidatePosition();
+        });
+      }
+    }
+    else if (event.key === "Delete" && !query && activeLine < draftLines.length - 1) {
+      const editor = inputRefs.current[activeLine];
+      const currentLine = draftLines[activeLine] ?? "";
+      const start = editor?.selectionStart ?? currentLine.length;
+      const end = editor?.selectionEnd ?? start;
+      if (start === currentLine.length && end === currentLine.length) {
+        event.preventDefault();
+        setDraftLines((current) => {
+          const next = [...current];
+          next[activeLine] = `${next[activeLine] ?? ""}${next[activeLine + 1] ?? ""}`;
+          next.splice(activeLine + 1, 1);
+          return next;
+        });
+        setSoftBreaks((current) => current.filter((_, index) => index !== activeLine + 1));
+        requestAnimationFrame(() => {
+          inputRefs.current[activeLine]?.focus();
+          inputRefs.current[activeLine]?.setSelectionRange(currentLine.length, currentLine.length);
+          updateCandidatePosition();
+        });
+      }
+    }
     else if (event.key === "Backspace" && !query && !draftLines[activeLine] && draftLines.length > 1) {
       event.preventDefault();
       const previousLine = Math.max(0, activeLine - 1);

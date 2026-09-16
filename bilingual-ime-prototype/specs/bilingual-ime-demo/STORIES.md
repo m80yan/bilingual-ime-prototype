@@ -16,6 +16,8 @@ Acceptance criteria:
 - Pressing Space or Enter commits the selected visible candidate.
 - Committed candidates append to one Chinese draft instead of creating one line per word.
 - Backspace deletes pinyin query text first, then committed Chinese text when the query is empty.
+- Backspace at the start of a non-first bilingual group merges it into the previous group.
+- Delete at the end of a non-last bilingual group pulls the next group up into the current group.
 - ASCII punctuation maps to Chinese punctuation and can be committed into the draft.
 - The editor supports native select all, selected-text deletion, cursor movement, line breaks, and one-character deletion for committed Chinese text.
 - Pressing Enter without active pinyin creates a new bilingual line group rather than stacking Chinese lines above one shared translation.

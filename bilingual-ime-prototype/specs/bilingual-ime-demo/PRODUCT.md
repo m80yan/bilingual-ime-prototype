@@ -79,6 +79,8 @@ Figma references were provided during earlier implementation for the window stru
 20. Backspace behaves like a text editor:
    - If the pinyin query contains characters, Backspace edits the query normally.
    - If the pinyin query is empty, Backspace follows native text-field behavior: delete selected text or delete the character before the cursor.
+   - If the cursor is at the start of a non-first bilingual group, Backspace merges that group into the previous group.
+   - If the cursor is at the end of a non-last bilingual group, Delete merges the next group into the current group.
 
 21. ASCII punctuation typed while the pinyin query is empty commits Chinese punctuation directly:
    - `.` becomes `。`
