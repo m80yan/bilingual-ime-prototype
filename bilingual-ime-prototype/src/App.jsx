@@ -23,7 +23,7 @@ const secondaryLanguages = [
 export function App() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
-  const [lines, setLines] = useState([{ zh: "我爱你", en: "I love you", ja: "愛してる" }]);
+  const [draft, setDraft] = useState("我爱你");
   const [translations, setTranslations] = useState({});
   const [windowSize, setWindowSize] = useState({ width: 978, height: 520 });
   const [resizing, setResizing] = useState(false);
@@ -51,7 +51,7 @@ export function App() {
   useEffect(() => setSelected(0), [query]);
 
   useEffect(() => {
-    const pending = getPinyinCandidates(query)
+    const pending = [...new Set([...getPinyinCandidates(query), draft].filter(Boolean))]
       .filter((zh) => !localTranslations[zh]?.[secondaryLanguage]
         && !(secondaryLanguage === "en" && cedictTranslations[zh]?.length)
         && !translations[`${secondaryLanguage}:${zh}`]);
@@ -80,7 +80,7 @@ export function App() {
     }, 300);
 
     return () => { window.clearTimeout(debounce); controller.abort(); };
-  }, [query, secondaryLanguage]);
+  }, [query, draft, secondaryLanguage]);
 
   useEffect(() => {
     function resize(event) {
@@ -96,16 +96,17 @@ export function App() {
 
   function commit(candidate = visibleCandidates[selected]) {
     if (!candidate) return;
-    setLines((current) => [...current, { zh: candidate.zh, en: candidate.en }]);
+    setDraft((current) => `${current}${candidate.zh}`);
     setQuery("");
     inputRef.current?.focus();
   }
 
   function handleKeyDown(event) {
-    if (event.key === "ArrowDown") { event.preventDefault(); setSelected((current) => (current + 1) % visibleCandidates.length); }
-    else if (event.key === "ArrowUp") { event.preventDefault(); setSelected((current) => (current - 1 + visibleCandidates.length) % visibleCandidates.length); }
+    if (event.key === "ArrowDown" && visibleCandidates.length) { event.preventDefault(); setSelected((current) => (current + 1) % visibleCandidates.length); }
+    else if (event.key === "ArrowUp" && visibleCandidates.length) { event.preventDefault(); setSelected((current) => (current - 1 + visibleCandidates.length) % visibleCandidates.length); }
     else if (event.key === "Enter" || event.key === " ") { event.preventDefault(); commit(); }
     else if (/^[1-5]$/.test(event.key) && visibleCandidates[Number(event.key) - 1]) { event.preventDefault(); commit(visibleCandidates[Number(event.key) - 1]); }
+    else if (event.key === "Backspace" && !query && draft) { event.preventDefault(); setDraft((current) => current.slice(0, -1)); }
   }
 
   function startResize(event) {
@@ -122,9 +123,15 @@ export function App() {
   function translationPair(item) {
     return {
       primary: item.zh,
-      secondary: item[secondaryLanguage] ?? item.en,
+      secondary: item[secondaryLanguage] ?? item.en ?? translationFor(item.zh, secondaryLanguage),
     };
   }
+
+  const draftPair = translationPair({
+    zh: draft,
+    en: translationFor(draft, "en"),
+    ja: translationFor(draft, "ja"),
+  });
 
   function secondaryLanguageCombo() {
     const selectedLanguage = secondaryLanguages.find((language) => language.id === secondaryLanguage);
@@ -175,10 +182,7 @@ export function App() {
         <section className="writing-area">
           <div className="composition-editor">
             <div className="written-lines" aria-live="polite">
-              {lines.map((line, index) => {
-                const pair = translationPair(line);
-                return <p key={`${line.zh}-${index}`}><strong>{pair.primary}</strong><span>{pair.secondary}</span></p>;
-              })}
+              {draft && <p><strong>{draftPair.primary}</strong><span>{draftPair.secondary}</span></p>}
             </div>
             <div className="typing-line"><input ref={inputRef} value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={handleKeyDown} placeholder="输入拼音…" aria-label="输入拼音" autoComplete="off" /></div>
             <div className="candidate-picker" role="listbox" aria-label="双语候选">
