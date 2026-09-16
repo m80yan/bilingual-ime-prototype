@@ -73,12 +73,10 @@ function ScrambleText({ text, onDone }) {
   return display;
 }
 
-function StableTranslation({ lineKey, text }) {
-  const [played, setPlayed] = useState({});
-
+function StableTranslation({ text, hasPlayed, onDone }) {
   if (!text) return null;
-  if (played[lineKey] === text) return text;
-  return <ScrambleText text={text} onDone={() => setPlayed((current) => ({ ...current, [lineKey]: text }))} />;
+  if (hasPlayed) return text;
+  return <ScrambleText text={text} onDone={onDone} />;
 }
 
 export function App() {
@@ -87,6 +85,7 @@ export function App() {
   const [candidatePage, setCandidatePage] = useState(0);
   const [draftLines, setDraftLines] = useState([""]);
   const [translations, setTranslations] = useState({});
+  const [playedTranslations, setPlayedTranslations] = useState({});
   const [loadingLines, setLoadingLines] = useState({});
   const [activeLine, setActiveLine] = useState(0);
   const [windowSize, setWindowSize] = useState({ width: 978, height: 520 });
@@ -321,6 +320,7 @@ export function App() {
                   en: translationFor(line, "en"),
                   ja: translationFor(line, "ja"),
                 }).secondary;
+                const translationKey = `${secondaryLanguage}:${line}:${secondary}`;
                 return (
                   <p className="bilingual-line" key={index}>
                     <textarea
@@ -337,7 +337,11 @@ export function App() {
                     {query && activeLine === index && <span className="pinyin-composition">{query}</span>}
                     {line && (loadingLines[index]
                       ? <span className="translation-shimmer" aria-label="Translating" />
-                      : <span><StableTranslation lineKey={index} text={secondary} /></span>)}
+                      : <span><StableTranslation
+                        text={secondary}
+                        hasPlayed={Boolean(playedTranslations[translationKey])}
+                        onDone={() => setPlayedTranslations((current) => ({ ...current, [translationKey]: true }))}
+                      /></span>)}
                   </p>
                 );
               })}
