@@ -133,6 +133,7 @@ export function App() {
   }, [query, translations]);
   const pageCount = Math.max(1, Math.ceil(visibleCandidates.length / PAGE_SIZE));
   const pagedCandidates = visibleCandidates.slice(candidatePage * PAGE_SIZE, candidatePage * PAGE_SIZE + PAGE_SIZE);
+  const footerLanguageLabel = secondaryLanguage === "ja" ? "Japanese" : "English";
 
   useEffect(() => { setSelected(0); setCandidatePage(0); }, [query]);
 
@@ -614,7 +615,7 @@ export function App() {
             </div>
           </div>
         </section>
-        <footer className="ime-footer"><span>Smart English output as you write Chinese</span><button className={resizing ? "resize-handle active" : "resize-handle"} onPointerDown={startResize} aria-label="Drag to resize window"><span className="resize-grip" aria-hidden="true">{[1, 2, 3].map((count) => <span className="resize-grip-row" key={count}>{Array.from({ length: count }, (_, index) => <img key={index} src={resizing ? "/assets/figma-drag-handle-pressed.svg" : "/assets/figma-drag-handle-default.svg"} alt="" />)}</span>)}</span></button></footer>
+        <footer className="ime-footer"><span>{`Smart ${footerLanguageLabel} output as you write Chinese`}</span><button className={resizing ? "resize-handle active" : "resize-handle"} onPointerDown={startResize} aria-label="Drag to resize window"><span className="resize-grip" aria-hidden="true">{[1, 2, 3].map((count) => <span className="resize-grip-row" key={count}>{Array.from({ length: count }, (_, index) => <img key={index} src={resizing ? "/assets/figma-drag-handle-pressed.svg" : "/assets/figma-drag-handle-default.svg"} alt="" />)}</span>)}</span></button></footer>
       </section>
     </main>
   );
