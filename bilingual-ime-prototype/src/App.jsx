@@ -100,6 +100,7 @@ export function App() {
   const [isSecondaryMenuOpen, setIsSecondaryMenuOpen] = useState(false);
   const [candidatePosition, setCandidatePosition] = useState({ left: 0, top: 0 });
   const [compositionPosition, setCompositionPosition] = useState({ left: 0, top: 0 });
+  const [allChineseSelected, setAllChineseSelected] = useState(false);
   const editorRef = useRef(null);
   const inputRefs = useRef([]);
   const previousDraftLines = useRef([""]);
@@ -202,6 +203,17 @@ export function App() {
   }, []);
 
   function replaceDraftSelection(text) {
+    if (allChineseSelected) {
+      setAllChineseSelected(false);
+      setDraftLines([text]);
+      setActiveLine(0);
+      requestAnimationFrame(() => {
+        inputRefs.current[0]?.focus();
+        inputRefs.current[0]?.setSelectionRange(text.length, text.length);
+      });
+      return;
+    }
+
     const editor = inputRefs.current[activeLine];
     const currentLine = draftLines[activeLine] ?? "";
     const start = editor?.selectionStart ?? currentLine.length;
@@ -273,6 +285,37 @@ export function App() {
   }
 
   function handleKeyDown(event) {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "a") {
+      event.preventDefault();
+      setQuery("");
+      setAllChineseSelected(true);
+      return;
+    }
+    if (allChineseSelected && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "c") {
+      event.preventDefault();
+      navigator.clipboard?.writeText(draftLines.join("\n"));
+      return;
+    }
+    if (allChineseSelected && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "x") {
+      event.preventDefault();
+      navigator.clipboard?.writeText(draftLines.join("\n"));
+      setDraftLines([""]);
+      setAllChineseSelected(false);
+      setActiveLine(0);
+      requestAnimationFrame(() => inputRefs.current[0]?.focus());
+      return;
+    }
+    if (allChineseSelected && (event.key === "Backspace" || event.key === "Delete")) {
+      event.preventDefault();
+      setDraftLines([""]);
+      setAllChineseSelected(false);
+      setActiveLine(0);
+      requestAnimationFrame(() => inputRefs.current[0]?.focus());
+      return;
+    }
+    if (allChineseSelected && event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey) {
+      setAllChineseSelected(false);
+    }
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     if (event.key === "ArrowDown" && pagedCandidates.length) { event.preventDefault(); setSelected((current) => (current + 1) % pagedCandidates.length); }
     else if (event.key === "ArrowUp" && pagedCandidates.length) { event.preventDefault(); setSelected((current) => (current - 1 + pagedCandidates.length) % pagedCandidates.length); }
@@ -304,6 +347,7 @@ export function App() {
   }
 
   function handleDraftChange(event, lineIndex) {
+    setAllChineseSelected(false);
     const next = event.target.value;
     const pinyin = next.match(/[a-z]+/gi)?.join("").toLowerCase() ?? "";
     if (query && next.includes("=") && pageCount > 1) {
@@ -410,7 +454,7 @@ export function App() {
             <div className="written-lines" aria-live="polite">
               {draftLines.map((line, index) => {
                 return (
-                  <p className="bilingual-line" key={index}>
+                  <p className={allChineseSelected ? "bilingual-line all-selected" : "bilingual-line"} key={index}>
                     <textarea
                       ref={(element) => { inputRefs.current[index] = element; }}
                       value={line}
@@ -418,7 +462,7 @@ export function App() {
                       onFocus={() => setActiveLine(index)}
                       onKeyDown={handleKeyDown}
                       onKeyUp={updateCandidatePosition}
-                      onClick={updateCandidatePosition}
+                      onClick={() => { setAllChineseSelected(false); updateCandidatePosition(); }}
                       onSelect={updateCandidatePosition}
                       placeholder={index === 0 && !(query && activeLine === index) ? "用英文输入法打出拼音…" : ""}
                       aria-label={`中文正文第 ${index + 1} 行`}
@@ -426,7 +470,7 @@ export function App() {
                       spellCheck="false"
                     />
                     {query && activeLine === index && <span className="pinyin-composition" style={compositionPosition}>{query}</span>}
-                    {line && <span>{renderSecondarySegments(line, index)}</span>}
+                    {line && <span className="secondary-line">{renderSecondarySegments(line, index)}</span>}
                   </p>
                 );
               })}
