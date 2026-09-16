@@ -55,7 +55,6 @@ export default async function handler(request, response) {
       model: "gpt-5-nano",
       reasoning: { effort: "minimal" },
       input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }],
-      temperature: 0.2,
       max_output_tokens: 180,
     }),
   });
