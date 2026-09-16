@@ -154,9 +154,8 @@ export function App() {
     const previousSegments = previousDraftLines.current.flatMap(splitChineseSegments);
     const segmentKeys = {};
     draftLines.forEach((line, lineIndex) => {
-      splitChineseSegments(line).forEach((segment, segmentIndex) => {
-        const previousSegment = splitChineseSegments(previousDraftLines.current[lineIndex] ?? "")[segmentIndex];
-        segmentKeys[`${lineIndex}:${segment}`] = isChineseText(segment) && segment !== previousSegment;
+      splitChineseSegments(line).forEach((segment) => {
+        segmentKeys[segment] = isChineseText(segment) && !previousSegments.includes(segment);
       });
     });
     previousSegments
@@ -462,13 +461,12 @@ export function App() {
     return splitChineseSegments(line).map((segment, segmentIndex) => {
       const secondary = translationFor(segment, secondaryLanguage);
       const translationKey = `${secondaryLanguage}:${segment}:${secondary}`;
-      const loadingKey = `${lineIndex}:${segment}`;
       const needsSpace = segmentIndex > 0;
 
       return (
         <span className="translation-segment" key={`${segment}-${segmentIndex}`}>
           {needsSpace ? " " : ""}
-          {loadingSegments[loadingKey]
+          {loadingSegments[segment]
             ? <span className="translation-shimmer segment-shimmer" aria-label="Translating" />
             : <StableTranslation
                 text={secondary}

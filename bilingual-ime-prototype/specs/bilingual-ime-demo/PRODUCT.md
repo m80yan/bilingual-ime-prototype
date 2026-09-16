@@ -105,6 +105,8 @@ Figma references were provided during earlier implementation for the window stru
 
 25b. Once a Chinese sentence segment ends with sentence-final punctuation such as `。`, `！`, or `？`, the matching secondary-language segment is considered settled even if the user continues typing on the same line. Later text after that punctuation must shimmer/reveal independently without replaying the settled segment, unless the settled Chinese segment itself is edited.
 
+25c. Reflowing existing bilingual groups, including inserting a new group before them with Enter, must not replay loading or typing for unchanged later groups. Loading/reveal is triggered by Chinese content changes, not by a line index change.
+
 26. When a committed Chinese sentence has a full-sentence translation, the line below the Chinese draft displays that full-sentence translation, not only per-word dictionary glosses.
 
 27. While a sentence translation is unavailable, the UI may show a quiet placeholder such as `...`, but it should not block typing, candidate selection, deletion, punctuation input, selection, cursor movement, or line breaks.

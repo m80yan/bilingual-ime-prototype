@@ -53,6 +53,7 @@ Acceptance criteria:
 - The latest secondary-language translation appears with a typing reveal whose active character uses caret blue `#5193FB`.
 - A settled bilingual line does not replay the typing reveal when the user edits later lines.
 - A sentence segment ending in Chinese sentence-final punctuation does not replay the typing reveal when the user continues typing later text on the same line.
+- Inserting or splitting an earlier bilingual group with Enter does not replay loading or typing for unchanged later groups.
 - Failed API responses leave the Chinese draft intact and keep typing usable.
 - Translation requests are debounced and do not fire for every keystroke.
 - Verify with at least one unknown full sentence on production.
