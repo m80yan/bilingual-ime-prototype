@@ -74,7 +74,7 @@ Figma references were provided during earlier implementation for the window stru
 
 18. Committed candidates insert at the current cursor or replace the current selection in the active Chinese line. They do not create a new visual line or a separate note item for each word unless the user explicitly creates a new bilingual line group.
 
-19. Each written Chinese sentence or line is displayed as one bilingual pair: Chinese on the first line, translation directly below. Multiple Chinese lines must not stack above a single shared translation line. Separate bilingual groups use a fixed 28 px visual gap and must not be stretched by unused editor height. A user-created Enter line break is a soft text-area line break and must stay compact; it must not reuse the large visual group spacing reserved for separate bilingual groups.
+19. Each written Chinese sentence or line is displayed as one bilingual pair: Chinese on the first line, translation directly below. Multiple Chinese lines must not stack above a single shared translation line. Chinese and secondary-language text inside the same bilingual group stay close together with no added group gap. Separate bilingual groups, including groups created by Enter, use a fixed 28 px visual gap and must not be stretched by unused editor height.
 
 20. Backspace behaves like a text editor:
    - If the pinyin query contains characters, Backspace edits the query normally.

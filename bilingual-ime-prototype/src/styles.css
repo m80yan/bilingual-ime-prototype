@@ -21,7 +21,7 @@ button { color: inherit; }
 .written-lines { display: grid; align-content: start; grid-auto-rows: max-content; gap: 28px; height: 100%; overflow-y: auto; padding-right: 15px; scrollbar-color: #aaa transparent; scrollbar-width: thin; }
 .written-lines::-webkit-scrollbar { width: 8px; }.written-lines::-webkit-scrollbar-track { background: transparent; }.written-lines::-webkit-scrollbar-thumb { border-radius: 0 !important; background: #aaa; }.written-lines::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
 .written-lines p { display: grid; gap: 0; margin: 0; font-size: 12px; line-height: 12px; }.bilingual-line { align-content: start; }.written-lines textarea { display: block; width: 100%; min-height: 12px; max-height: 64px; resize: none; overflow: auto; border: 0; outline: 0; padding: 0; caret-color: transparent; color: #000; background: transparent; font-size: 12px; font-weight: 700; line-height: 12px; white-space: pre-wrap; }.written-lines textarea::placeholder { color: #aaa; font-weight: 400; }.written-lines textarea::selection { background: rgb(81 147 251 / 25%); }.written-lines span { font-weight: 700; }
-.bilingual-line.soft-break { margin-top: -28px; }
+.bilingual-line.soft-break { margin-top: 0; }
 .bilingual-line.all-selected textarea { background: rgb(81 147 251 / 25%); }.bilingual-line.all-selected .secondary-line { opacity: .5; }
 .custom-caret { position: absolute; z-index: 3; width: 2px; height: 12px; background: #5193FB; pointer-events: none; animation: caret-blink 1s steps(1) infinite; }
 .pinyin-composition { position: absolute; z-index: 2; display: inline-block; width: fit-content; min-width: 24px; margin-top: 0; border-bottom: 1px solid #333; color: #222; font-weight: 700; line-height: 15px; pointer-events: none; }
