@@ -24,7 +24,7 @@ button { color: inherit; }
 .bilingual-line.all-selected textarea { background: rgb(81 147 251 / 25%); }.bilingual-line.all-selected .secondary-line { opacity: .5; }.secondary-line { color: #5193FB; }
 .pinyin-caret { display: inline-block; width: 2px; height: 15px; margin: 0 1px -2px; background: #5193FB; }
 .translation-shimmer { display: block; width: min(260px, 62%); height: 10px; margin-top: 2px; overflow: hidden; border-radius: 0; background: linear-gradient(90deg, #ececec 0%, #f7f7f7 42%, #e4e4e4 74%); background-size: 220% 100%; animation: shimmer 1.05s ease-in-out infinite; }
-.translation-segment { display: inline; }.segment-shimmer { display: inline-block; width: 48px; margin: 0 0 -1px; vertical-align: baseline; }
+.translation-segment { display: inline; }.translation-editable { cursor: text; }.translation-edit { width: min(420px, 90%); height: 14px; margin: 0; padding: 0; border: 0; outline: 1px solid rgb(81 147 251 / 45%); color: #5193FB; background: rgb(81 147 251 / 8%); font-size: 14px; font-weight: 700; line-height: 12px; }.segment-shimmer { display: inline-block; width: 48px; margin: 0 0 -1px; vertical-align: baseline; }
 .typing-text { display: inline; }.typing-letter { color: #5193FB; transition: color .18s ease-out; }.typing-letter.active { color: #000 !important; }
 @keyframes shimmer { from { background-position: 140% 0; } to { background-position: -80% 0; } }
 @keyframes caret-blink { 50% { opacity: 0; } }

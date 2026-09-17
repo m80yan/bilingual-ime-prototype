@@ -42,6 +42,7 @@ const PAGE_SIZE = 5;
 const USER_DICTIONARY_KEY = "ime:user-dictionary";
 const USER_GLOSSARY_KEY = "ime:domain-glossary";
 const MISSED_QUERIES_KEY = "ime:missed-queries";
+const USER_TRANSLATION_PATCHES_KEY = "ime:user-translation-patches";
 const USER_LEARNING_HALF_LIFE_MS = 1000 * 60 * 60 * 24 * 7;
 const emptyGlossaryDraft = { zh: "", pinyin: "", en: "", ja: "", domain: "common" };
 const glossarySuggestionDomains = new Set(["design-uiux", "internet-slang", "history", "history-politics", "place", "auto", "ui", "movie", "device", "education", "business", "technology", "general"]);
@@ -159,6 +160,24 @@ function writeMissedQueries(entries) {
   }
 }
 
+function readTranslationPatches() {
+  try {
+    const saved = window.localStorage.getItem(USER_TRANSLATION_PATCHES_KEY);
+    const entries = saved ? JSON.parse(saved) : {};
+    return entries && typeof entries === "object" ? entries : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeTranslationPatches(patches) {
+  try {
+    window.localStorage.setItem(USER_TRANSLATION_PATCHES_KEY, JSON.stringify(patches));
+  } catch {
+    // Ignore storage failures; user edits should not block typing.
+  }
+}
+
 function normalizePinyin(value) {
   return value.toLowerCase().replace(/[^a-z]/g, "");
 }
@@ -178,6 +197,10 @@ function userGlossaryTranslation(zh, language, entries) {
 
 function translationCacheKey(language, style, zh, mode = "draft") {
   return mode === "final" ? `final:${language}:${style}:${zh}` : `${language}:${style}:${zh}`;
+}
+
+function translationPatchKey(language, style, zh) {
+  return `${language}:${style}:${zh}`;
 }
 
 function relevantTranslationGlossary(texts, language, entries) {
@@ -336,6 +359,8 @@ export function App() {
   const [isSuggestingGlossary, setIsSuggestingGlossary] = useState(false);
   const [glossarySuggestError, setGlossarySuggestError] = useState("");
   const [missedQueries, setMissedQueries] = useState(() => readMissedQueries());
+  const [translationPatches, setTranslationPatches] = useState(() => readTranslationPatches());
+  const [editingTranslation, setEditingTranslation] = useState(null);
   const [playedTranslations, setPlayedTranslations] = useState({});
   const [loadingSegments, setLoadingSegments] = useState({});
   const [activeLine, setActiveLine] = useState(0);
@@ -360,7 +385,8 @@ export function App() {
       return `${baseTranslation.replace(/[.!?。！？]$/, "")}${targetPunctuation(punctuation, language)}`;
     }
 
-    return translations[translationCacheKey(language, translationStyle, zh, "final")]
+    return translationPatches[translationPatchKey(language, translationStyle, zh)]
+      ?? translations[translationCacheKey(language, translationStyle, zh, "final")]
       ?? translations[translationCacheKey(language, translationStyle, zh)]
       ?? translations[`final:${language}:${zh}`]
       ?? translations[`${language}:${zh}`]
@@ -1017,6 +1043,25 @@ export function App() {
     setGlossarySuggestError("");
   }
 
+  function saveTranslationPatch(key, value) {
+    const text = value.trim();
+    setEditingTranslation(null);
+    if (!text || !key?.zh) return;
+    setTranslationPatches((current) => {
+      const next = {
+        ...current,
+        [translationPatchKey(key.language, key.style, key.zh)]: text,
+      };
+      writeTranslationPatches(next);
+      return next;
+    });
+    setTranslations((current) => ({
+      ...current,
+      [translationCacheKey(key.language, key.style, key.zh)]: text,
+      [translationCacheKey(key.language, key.style, key.zh, "final")]: text,
+    }));
+  }
+
   function translationPair(item) {
     return {
       primary: item.zh,
@@ -1035,11 +1080,39 @@ export function App() {
           {needsSpace ? " " : ""}
           {loadingSegments[segment]
             ? <span className="translation-shimmer segment-shimmer" aria-label="Translating" />
-            : <StableTranslation
-                text={secondary}
-                hasPlayed={Boolean(playedTranslations[translationKey])}
-                onDone={() => setPlayedTranslations((current) => ({ ...current, [translationKey]: true }))}
-              />}
+            : editingTranslation?.zh === segment && editingTranslation?.language === secondaryLanguage && editingTranslation?.style === translationStyle
+              ? <input
+                  autoFocus
+                  className="translation-edit"
+                  defaultValue={editingTranslation.value}
+                  onBlur={(event) => saveTranslationPatch(editingTranslation, event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      saveTranslationPatch(editingTranslation, event.currentTarget.value);
+                    }
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      setEditingTranslation(null);
+                    }
+                  }}
+                />
+              : <span
+                  className="translation-editable"
+                  title="Double-click to edit translation"
+                  onDoubleClick={() => setEditingTranslation({
+                    zh: segment,
+                    language: secondaryLanguage,
+                    style: translationStyle,
+                    value: secondary,
+                  })}
+                >
+                  <StableTranslation
+                    text={secondary}
+                    hasPlayed={Boolean(playedTranslations[translationKey])}
+                    onDone={() => setPlayedTranslations((current) => ({ ...current, [translationKey]: true }))}
+                  />
+                </span>}
         </span>
       );
     });

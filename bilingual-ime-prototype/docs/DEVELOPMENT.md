@@ -209,6 +209,21 @@ Supported translation styles:
 - `social`: concise, expressive, social-media-friendly output
 - `technical`: terminology-first, clear technical-documentation style
 
+### Translation edit patches
+
+Lightweight translation post-editing is stored in browser state:
+
+- Storage key: `ime:user-translation-patches`
+- Key format: `language:style:sourceChinese`
+- Matching: exact source segment only
+
+Behavior:
+
+- Double-click a secondary-language segment to edit it inline.
+- Press Enter or blur to save.
+- Press Esc to cancel.
+- Saved patches override API translations, glossary translations, and local fallbacks for the same language/style/source segment.
+
 Relevant commit:
 
 - `7700173 Improve final translation style rules`
