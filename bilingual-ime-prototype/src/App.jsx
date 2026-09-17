@@ -78,7 +78,7 @@ function targetPunctuation(mark, language) {
 
 function properEnglishCandidate(zh) {
   const firstDefinition = cedictTranslations[zh]?.[0];
-  const match = firstDefinition?.match(/^([A-Z][A-Za-z .'-]{1,40})(?:,|$)/);
+  const match = firstDefinition?.match(/^([A-Z][A-Za-z.'-]*(?: [A-Za-z.'-]+){0,8})(?:\s*\(|,|$)/);
   return match?.[1]?.trim() ?? "";
 }
 
