@@ -123,6 +123,32 @@ Relevant commit:
 
 - `38eaa2b Improve pinyin candidate engine ranking`
 
+### Fuzzy pinyin support
+
+Lightweight fuzzy pinyin support is implemented inside `src/pinyinEngine.js`.
+
+Supported fuzzy pairs:
+
+- `s` / `sh`
+- `z` / `zh`
+- `c` / `ch`
+- `an` / `ang`
+- `en` / `eng`
+- `in` / `ing`
+
+Rules:
+
+- Exact candidates still win.
+- If the input has no exact whole-word candidate, fuzzy candidates are inserted before low-confidence segmentation noise.
+- If the input has exact candidates, fuzzy candidates are appended later so they do not disrupt normal typing.
+- Fuzzy variant generation is capped to avoid performance problems.
+
+Regression examples:
+
+- `sanghai` -> `上海`
+- `zongguo` -> `中国`
+- `xian` keeps exact candidates first, such as `先`, instead of being overtaken by `xiang` fuzzy candidates.
+
 ## 6. P3 work completed
 
 P3 focused on browser-side user learning.

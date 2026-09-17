@@ -57,6 +57,20 @@ const candidateRankingCases = [
     expectedTop: "西历",
     expectedIncludes: ["西"],
   },
+  {
+    input: "sanghai",
+    expectedTop: "上海",
+    expectedIncludes: ["伤害"],
+  },
+  {
+    input: "zongguo",
+    expectedTop: "中国",
+  },
+  {
+    input: "xian",
+    expectedTop: "先",
+    expectedIncludes: ["西安"],
+  },
 ];
 
 for (const testCase of candidateRankingCases) {

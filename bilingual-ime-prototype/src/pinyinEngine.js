@@ -12,6 +12,8 @@ const preferredSyllableCandidates = {
   xi: ["西"],
   li: ["历"],
 };
+const fuzzyInitialPairs = [["s", "sh"], ["z", "zh"], ["c", "ch"]];
+const fuzzyFinalPairs = [["an", "ang"], ["en", "eng"], ["in", "ing"]];
 
 function unique(items, limit) {
   return [...new Set(items.filter(Boolean))].slice(0, limit);
@@ -52,6 +54,54 @@ function leadingSyllableCandidates(input, limit) {
       .map((item) => item.w)],
     limit,
   );
+}
+
+function fuzzySyllableVariants(syllable) {
+  const variants = new Set([syllable]);
+
+  fuzzyInitialPairs.forEach(([shortInitial, longInitial]) => {
+    [...variants].forEach((variant) => {
+      if (variant.startsWith(longInitial)) variants.add(`${shortInitial}${variant.slice(longInitial.length)}`);
+      else if (variant.startsWith(shortInitial)) variants.add(`${longInitial}${variant.slice(shortInitial.length)}`);
+    });
+  });
+
+  fuzzyFinalPairs.forEach(([shortFinal, longFinal]) => {
+    [...variants].forEach((variant) => {
+      if (variant.endsWith(longFinal)) variants.add(`${variant.slice(0, -longFinal.length)}${shortFinal}`);
+      else if (variant.endsWith(shortFinal)) variants.add(`${variant.slice(0, -shortFinal.length)}${longFinal}`);
+    });
+  });
+
+  return [...variants].filter((variant) => syllableKeys.has(variant)).slice(0, 6);
+}
+
+function fuzzyPinyinVariants(input, limit = 18) {
+  const syllables = splitIntoSyllables(input);
+  if (!syllables.length) return [];
+
+  const variants = [];
+  function build(index, parts) {
+    if (variants.length >= limit) return;
+    if (index === syllables.length) {
+      const candidate = parts.join("");
+      if (candidate !== input) variants.push(candidate);
+      return;
+    }
+    fuzzySyllableVariants(syllables[index]).forEach((variant) => build(index + 1, [...parts, variant]));
+  }
+
+  build(0, []);
+  return unique(variants, limit);
+}
+
+function fuzzyCandidates(input, limit) {
+  const matches = fuzzyPinyinVariants(input)
+    .flatMap((variant) => [
+      ...domainGlossaryCandidates(variant, limit),
+      ...rankedDictEntries(variant, 4).map((entry) => entry.w),
+    ]);
+  return unique(matches, limit);
 }
 
 function segmentedCandidates(input, limit) {
@@ -251,20 +301,21 @@ export function getPinyinCandidates(value, limit = 25) {
   const exact = dict[input] ? direct : [];
   const associated = dict[input] ? associatedPrefixCandidates(input, exact, limit) : [];
   const leading = leadingSyllableCandidates(input, limit);
-  if (dict[input]) return unique([...shortcut, ...glossary, ...preferred, ...mixedCandidates(input, limit), ...exact.slice(0, 1), ...leading, ...exact.slice(1), ...associated], limit);
+  const fuzzy = fuzzyCandidates(input, limit);
+  if (dict[input]) return unique([...shortcut, ...glossary, ...preferred, ...exact.slice(0, 1), ...leading, ...exact.slice(1), ...associated, ...fuzzy], limit);
 
   if (input.length >= 12) {
     if (glossary.length) {
-      return unique([...shortcut, ...glossary, ...mixedCandidates(input, limit), ...stablePrefixCandidates(input, limit)], limit);
+      return unique([...shortcut, ...glossary, ...mixedCandidates(input, limit), ...stablePrefixCandidates(input, limit), ...fuzzy], limit);
     }
     const segmented = segmentedCandidatePaths(input, limit)
       .filter((path) => path.segments <= 6 && path.singleChars <= 2)
       .map((path) => path.text);
     const composed = composedLongCandidates(input, limit);
-    return unique([...shortcut, ...glossary, ...mixedCandidates(input, limit), ...composed.slice(0, 2), ...stablePrefixCandidates(input, limit), ...segmented], limit);
+    return unique([...shortcut, ...glossary, ...mixedCandidates(input, limit), ...composed.slice(0, 2), ...stablePrefixCandidates(input, limit), ...fuzzy, ...segmented], limit);
   }
 
-  return unique([...shortcut, ...glossary, ...preferred, ...mixedCandidates(input, limit), ...composedLongCandidates(input, limit), ...leading, ...exact, ...associated, ...direct, ...segmentedCandidates(input, limit)], limit);
+  return unique([...shortcut, ...glossary, ...preferred, ...mixedCandidates(input, limit), ...fuzzy, ...composedLongCandidates(input, limit), ...leading, ...exact, ...associated, ...direct, ...segmentedCandidates(input, limit)], limit);
 }
 
 export function remainingPinyinAfterLeadingCandidate(value, candidate) {
