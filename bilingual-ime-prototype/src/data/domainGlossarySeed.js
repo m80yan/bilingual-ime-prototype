@@ -43,6 +43,15 @@ export const domainGlossarySeedEntries = [
   { zh: "莫斯科", pinyin: "mosike", en: "Moscow", ja: "モスクワ", domain: "place", status: "reviewed" },
   { zh: "星球大战计划", pinyin: "xingqiudazhanjihua", en: "the Strategic Defense Initiative", ja: "戦略防衛構想", domain: "history-politics", aliases: ["战略防御倡议"], status: "reviewed" },
   { zh: "西历", pinyin: "xili", en: "the Western calendar", ja: "西暦", domain: "general", status: "reviewed" },
+  { zh: "车机系统", pinyin: "chejixitong", en: "in-car system", ja: "車載システム", domain: "auto", status: "reviewed" },
+  { zh: "OTA升级", pinyin: "otashengji", en: "OTA update", ja: "OTAアップデート", domain: "auto", aliases: ["ota升级"], status: "reviewed" },
+  { zh: "OTA", pinyin: "ota", en: "OTA", ja: "OTA", domain: "auto", status: "reviewed" },
+  { zh: "登录", pinyin: "denglu", en: "log in", ja: "ログインする", domain: "ui", aliases: ["登陆"], status: "reviewed" },
+  { zh: "签到", pinyin: "qiandao", en: "sign in", ja: "チェックインする", domain: "ui", status: "reviewed" },
+  { zh: "票房", pinyin: "piaofang", en: "box office", ja: "興行収入", domain: "movie", status: "reviewed" },
+  { zh: "枪战片", pinyin: "qiangzhanpian", en: "action film", ja: "アクション映画", domain: "movie", status: "reviewed" },
+  { zh: "Mate 70 Pro", pinyin: "mateqilingpro", en: "Mate 70 Pro", ja: "Mate 70 Pro", domain: "device", aliases: ["mate70pro", "Mate70Pro", "华为Mate70Pro"], status: "reviewed" },
+  { zh: "华为Mate70Pro", pinyin: "huaweimateqilingpro", en: "Huawei Mate 70 Pro", ja: "Huawei Mate 70 Pro", domain: "device", aliases: ["华为 Mate 70 Pro"], status: "reviewed" },
 ];
 
 const domainDefaultWeights = {
@@ -51,6 +60,10 @@ const domainDefaultWeights = {
   history: 86,
   "history-politics": 86,
   place: 84,
+  auto: 90,
+  ui: 88,
+  movie: 88,
+  device: 88,
   general: 80,
 };
 

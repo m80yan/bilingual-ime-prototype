@@ -19,6 +19,38 @@ function json(response, body, status = 200) {
   return response.status(status).json(body);
 }
 
+function normalizeTargetPunctuation(text, language) {
+  if (language !== "en") return text;
+  return text
+    .replace(/，/g, ",")
+    .replace(/。/g, ".")
+    .replace(/！/g, "!")
+    .replace(/？/g, "?")
+    .replace(/；/g, ";")
+    .replace(/：/g, ":")
+    .replace(/\s+([,.!?;:])/g, "$1")
+    .replace(/([,.!?;:])(?=\S)/g, "$1 ");
+}
+
+function removeRepeatedSentences(text) {
+  const parts = text.match(/[^.!?。！？]+[.!?。！？]?/g) ?? [text];
+  const seen = new Set();
+  return parts
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .filter((part) => {
+      const key = part.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .join(" ");
+}
+
+function polishTranslation(text, language) {
+  return removeRepeatedSentences(normalizeTargetPunctuation(text, language)).trim();
+}
+
 export default async function handler(request, response) {
   if (request.method !== "POST") return json(response, { error: "Method not allowed" }, 405);
 
@@ -52,7 +84,8 @@ export default async function handler(request, response) {
     `Translate every Simplified Chinese item into ${supportedLanguages[targetLanguage]}.`,
     "Use concise, natural wording for a bilingual writing/IME demo. Do not translate word-for-word when a native phrase is better.",
     "Prefer everyday American English for English output. Keep professional UI/UX and product-design terms precise when the sentence is about design.",
-    "Relevant domains include UI/UX design, product design, design systems, interaction design, visual design, cars, movies, history, daily life, and English learning.",
+    "Relevant domains include UI/UX design, product design, design systems, interaction design, visual design, cars, phones/devices, movies, history, daily life, and English learning.",
+    "When translating to English, output English punctuation, avoid Chinese punctuation, preserve standard product spacing such as Mate 70 Pro, and do not repeat the same sentence.",
     `Use these matched glossary entries when relevant: ${JSON.stringify(relevantGlossary)}`,
     "Return only a JSON object whose keys are the original Chinese strings and values are their translations.",
     JSON.stringify(remoteTexts),
@@ -85,7 +118,7 @@ export default async function handler(request, response) {
     const result = JSON.parse(raw);
     const translations = Object.fromEntries(remoteTexts
       .filter((text) => typeof result[text] === "string")
-      .map((text) => [text, result[text].trim()]));
+      .map((text) => [text, polishTranslation(result[text], targetLanguage)]));
     return json(response, { translations: { ...localResults, ...translations } });
   } catch {
     console.error("OpenAI translation response could not be read", outputText);

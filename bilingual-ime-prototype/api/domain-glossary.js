@@ -22,10 +22,14 @@ export const phraseTranslations = glossaryEntries.reduce((translations, entry) =
 }, { en: {}, ja: {} });
 
 export function getRelevantGlossary(texts, targetLanguage) {
+  const normalizedTexts = texts.map((text) => text.toLowerCase());
   return glossaryEntries
     .map((entry) => {
       const terms = [entry.zh, ...(entry.aliases ?? [])];
-      const matchedTerm = terms.find((term) => texts.some((text) => text.includes(term)));
+      const matchedTerm = terms.find((term) => {
+        const normalizedTerm = term.toLowerCase();
+        return normalizedTexts.some((text) => text.includes(normalizedTerm));
+      });
       const preferred = entry[targetLanguage]?.[0];
       if (!matchedTerm || !preferred) return null;
       return {
