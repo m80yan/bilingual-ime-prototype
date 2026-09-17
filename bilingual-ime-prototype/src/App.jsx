@@ -199,6 +199,10 @@ function translationCacheKey(language, style, zh, mode = "draft") {
   return mode === "final" ? `final:${language}:${style}:${zh}` : `${language}:${style}:${zh}`;
 }
 
+function frozenFinalTranslationKey(language, zh) {
+  return `final:${language}:${zh}`;
+}
+
 function translationPatchKey(language, style, zh) {
   return `${language}:${style}:${zh}`;
 }
@@ -379,21 +383,23 @@ export function App() {
   const resizeStart = useRef(null);
 
   function translationFor(zh, language) {
+    const exactTranslation = translationPatches[translationPatchKey(language, translationStyle, zh)]
+      ?? (isFinalTranslationSegment(zh) ? translations[frozenFinalTranslationKey(language, zh)] : null)
+      ?? translations[translationCacheKey(language, translationStyle, zh, "final")]
+      ?? translations[translationCacheKey(language, translationStyle, zh)]
+      ?? translations[`${language}:${zh}`]
+      ?? userGlossaryTranslation(zh, language, userGlossary)
+      ?? localTranslations[zh]?.[language]
+      ?? (language === "en" && cedictTranslations[zh]?.length ? cedictTranslations[zh].join("; ") : null);
+    if (exactTranslation) return exactTranslation;
+
     const { body, punctuation } = splitFinalPunctuation(zh);
     const baseTranslation = body !== zh ? translationFor(body, language) : null;
     if (baseTranslation && baseTranslation !== "…" && baseTranslation !== "翻訳中…") {
       return `${baseTranslation.replace(/[.!?。！？]$/, "")}${targetPunctuation(punctuation, language)}`;
     }
 
-    return translationPatches[translationPatchKey(language, translationStyle, zh)]
-      ?? translations[translationCacheKey(language, translationStyle, zh, "final")]
-      ?? translations[translationCacheKey(language, translationStyle, zh)]
-      ?? translations[`final:${language}:${zh}`]
-      ?? translations[`${language}:${zh}`]
-      ?? userGlossaryTranslation(zh, language, userGlossary)
-      ?? localTranslations[zh]?.[language]
-      ?? (language === "en" && cedictTranslations[zh]?.length ? cedictTranslations[zh].join("; ") : null)
-      ?? (language === "en" ? "…" : "翻訳中…");
+    return language === "en" ? "…" : "翻訳中…";
   }
 
   const rankedChineseCandidates = useMemo(() => {
@@ -481,7 +487,8 @@ export function App() {
         && !(secondaryLanguage === "en" && cedictTranslations[zh]?.length)
         && !translations[translationCacheKey(secondaryLanguage, translationStyle, zh)]);
     const pendingFinal = query ? [] : [...new Set(filledSegments.filter(isFinalTranslationSegment))]
-      .filter((zh) => !translations[translationCacheKey(secondaryLanguage, translationStyle, zh, "final")]);
+      .filter((zh) => !translations[frozenFinalTranslationKey(secondaryLanguage, zh)]
+        && !translations[translationCacheKey(secondaryLanguage, translationStyle, zh, "final")]);
     const requests = [
       { mode: "draft", texts: pendingDraft },
       { mode: "final", texts: pendingFinal },
@@ -515,9 +522,12 @@ export function App() {
         }));
         const entries = resultsByMode
           .filter(Boolean)
-          .flatMap(({ mode, results }) => Object.entries(results).map(([zh, translation]) => [
-            mode === "final" ? translationCacheKey(secondaryLanguage, translationStyle, zh, "final") : translationCacheKey(secondaryLanguage, translationStyle, zh),
-            translation,
+          .flatMap(({ mode, results }) => Object.entries(results).flatMap(([zh, translation]) => [
+            [
+              mode === "final" ? translationCacheKey(secondaryLanguage, translationStyle, zh, "final") : translationCacheKey(secondaryLanguage, translationStyle, zh),
+              translation,
+            ],
+            ...(mode === "final" ? [[frozenFinalTranslationKey(secondaryLanguage, zh), translation]] : []),
           ]));
         if (entries.length) {
           setTranslations((current) => ({ ...current, ...Object.fromEntries(entries) }));

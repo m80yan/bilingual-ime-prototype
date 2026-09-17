@@ -193,6 +193,7 @@ The intent:
 - User/session glossary entries override server seed glossary entries when both match the same term.
 - Translation style is controlled by a header selector and sent as `style` to `/api/translate`.
 - Style-specific translations are cached separately with keys like `en:formal:中文` and `final:en:social:中文`.
+- Completed sentence translations are frozen under `final:language:sourceChinese` after the first final translation, so switching style does not rewrite already completed sentences.
 
 The backend prompt has been tuned toward:
 
