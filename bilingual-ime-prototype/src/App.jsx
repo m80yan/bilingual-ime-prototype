@@ -676,6 +676,12 @@ export function App() {
     const next = event.target.value;
     const previous = draftLines[lineIndex] ?? "";
     const change = insertedTextChange(previous, next);
+    const isCompositionInput = /^[a-z=-]+$/i.test(change.inserted);
+    if (!isCompositionInput) {
+      setDraftLines((current) => current.map((line, index) => (index === lineIndex ? next : line)));
+      return;
+    }
+
     const pinyin = change.inserted.match(/[a-z]+/gi)?.join("") ?? "";
     if (query && change.inserted.includes("=") && candidatePage < pageCount - 1) {
       setCandidatePage((current) => Math.min(pageCount - 1, current + 1));
