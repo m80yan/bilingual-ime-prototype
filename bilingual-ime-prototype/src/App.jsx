@@ -37,6 +37,7 @@ const USER_DICTIONARY_KEY = "ime:user-dictionary";
 const USER_GLOSSARY_KEY = "ime:domain-glossary";
 const USER_LEARNING_HALF_LIFE_MS = 1000 * 60 * 60 * 24 * 7;
 const emptyGlossaryDraft = { zh: "", pinyin: "", en: "", ja: "", domain: "common" };
+const glossarySuggestionDomains = new Set(["design-uiux", "internet-slang", "history", "history-politics", "place", "auto", "ui", "movie", "device", "education", "business", "technology", "general"]);
 const seedGlossaryEntries = domainGlossarySeedEntries.map((entry) => ({
   zh: entry.zh,
   pinyin: entry.pinyin,
@@ -148,6 +149,26 @@ function userGlossaryCandidates(pinyin, entries) {
 function userGlossaryTranslation(zh, language, entries) {
   const entry = entries.find((item) => item.zh === zh);
   return entry?.[language] || null;
+}
+
+function safeGlossarySuggestion(item, existingEntries) {
+  const entry = {
+    zh: typeof item.zh === "string" ? item.zh.trim() : "",
+    pinyin: typeof item.pinyin === "string" ? item.pinyin.trim() : "",
+    en: typeof item.en === "string" ? item.en.trim() : "",
+    ja: typeof item.ja === "string" ? item.ja.trim() : "",
+    domain: glossarySuggestionDomains.has(item.domain) ? item.domain : "general",
+    weight: Number.isFinite(item.weight) ? Math.max(50, Math.min(130, Math.round(item.weight))) : 80,
+    locked: false,
+  };
+  const key = `${entry.zh}:${normalizePinyin(entry.pinyin)}`;
+  const isDuplicate = existingEntries.some((existing) => `${existing.zh}:${normalizePinyin(existing.pinyin)}` === key);
+  const isTooGeneric = ["这个", "一个", "发现", "需要", "可以", "没有", "时候", "问题", "用户"].includes(entry.zh);
+  if (!entry.zh || !entry.pinyin || !entry.en || !entry.ja) return null;
+  if (!/[\u3400-\u9fff]/.test(entry.zh)) return null;
+  if (!normalizePinyin(entry.pinyin)) return null;
+  if (entry.zh.length === 1 || isTooGeneric || isDuplicate) return null;
+  return entry;
 }
 
 function insertedTextChange(previous, next) {
@@ -263,6 +284,11 @@ export function App() {
   const [userGlossary, setUserGlossary] = useState(() => readUserGlossary());
   const [isGlossaryOpen, setIsGlossaryOpen] = useState(false);
   const [glossaryDraft, setGlossaryDraft] = useState(emptyGlossaryDraft);
+  const [suggestCorpus, setSuggestCorpus] = useState("");
+  const [suggestHints, setSuggestHints] = useState("");
+  const [glossarySuggestions, setGlossarySuggestions] = useState([]);
+  const [isSuggestingGlossary, setIsSuggestingGlossary] = useState(false);
+  const [glossarySuggestError, setGlossarySuggestError] = useState("");
   const [playedTranslations, setPlayedTranslations] = useState({});
   const [loadingSegments, setLoadingSegments] = useState({});
   const [activeLine, setActiveLine] = useState(0);
@@ -790,6 +816,63 @@ export function App() {
     });
   }
 
+  async function generateGlossarySuggestions() {
+    const texts = suggestCorpus.split(/\n+/).map((text) => text.trim()).filter(Boolean);
+    const hints = suggestHints.split(/[\n,，、]+/).map((hint) => hint.trim()).filter(Boolean);
+    if (!texts.length && !hints.length) {
+      setGlossarySuggestError("Paste corpus or hints first.");
+      return;
+    }
+
+    setIsSuggestingGlossary(true);
+    setGlossarySuggestError("");
+    try {
+      const response = await fetch("/api/glossary-suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ texts, hints, limit: 16 }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Suggestion failed.");
+      setGlossarySuggestions(Array.isArray(result.suggestions) ? result.suggestions : []);
+    } catch (error) {
+      setGlossarySuggestError(error.message || "Suggestion failed.");
+    } finally {
+      setIsSuggestingGlossary(false);
+    }
+  }
+
+  function addSafeGlossarySuggestions() {
+    const safeEntries = glossarySuggestions
+      .map((item) => safeGlossarySuggestion(item, userGlossary))
+      .filter(Boolean);
+    if (!safeEntries.length) {
+      setGlossarySuggestError("No safe new suggestions to add.");
+      return;
+    }
+
+    setUserGlossary((current) => {
+      const existingKeys = new Set(current.map((entry) => `${entry.zh}:${normalizePinyin(entry.pinyin)}`));
+      const additions = safeEntries.filter((entry) => {
+        const key = `${entry.zh}:${normalizePinyin(entry.pinyin)}`;
+        if (existingKeys.has(key)) return false;
+        existingKeys.add(key);
+        return true;
+      });
+      const next = [...additions, ...current].slice(0, 260);
+      writeUserGlossary(next);
+      return next;
+    });
+    setTranslations((current) => ({
+      ...current,
+      ...Object.fromEntries(safeEntries.flatMap((entry) => [
+        entry.en ? [`en:${entry.zh}`, entry.en] : null,
+        entry.ja ? [`ja:${entry.zh}`, entry.ja] : null,
+      ].filter(Boolean))),
+    }));
+    setGlossarySuggestError("");
+  }
+
   function translationPair(item) {
     return {
       primary: item.zh,
@@ -928,6 +1011,25 @@ export function App() {
               <label>English<input value={glossaryDraft.en} onChange={(event) => updateGlossaryDraft("en", event.target.value)} /></label>
               <label>日本語<input value={glossaryDraft.ja} onChange={(event) => updateGlossaryDraft("ja", event.target.value)} /></label>
               <label>Domain<input value={glossaryDraft.domain} onChange={(event) => updateGlossaryDraft("domain", event.target.value)} /></label>
+              <div className="glossary-suggest">
+                <div className="glossary-subtitle">Batch Suggest</div>
+                <label>Corpus<textarea value={suggestCorpus} onChange={(event) => setSuggestCorpus(event.target.value)} placeholder="Paste Chinese sentences, one per line." /></label>
+                <label>Hints<input value={suggestHints} onChange={(event) => setSuggestHints(event.target.value)} placeholder="Optional: terms, comma separated" /></label>
+                <div className="glossary-actions">
+                  <button type="button" onClick={generateGlossarySuggestions} disabled={isSuggestingGlossary}>{isSuggestingGlossary ? "Generating…" : "Generate suggestions"}</button>
+                  <button type="button" onClick={addSafeGlossarySuggestions} disabled={!glossarySuggestions.length}>Add all safe</button>
+                </div>
+                {glossarySuggestError && <div className="glossary-error">{glossarySuggestError}</div>}
+                {glossarySuggestions.length > 0 && (
+                  <div className="suggestion-list">
+                    {glossarySuggestions.map((entry, index) => (
+                      <div className="suggestion-row" key={`${entry.zh}-${entry.pinyin}-${index}`}>
+                        <strong>{entry.zh}</strong><em>{entry.pinyin}</em><span>{entry.en}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div className="glossary-actions">
                 <button type="button" onClick={() => setIsGlossaryOpen(false)}>Close</button>
                 <button type="submit">Save</button>

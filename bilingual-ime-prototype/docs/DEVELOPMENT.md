@@ -270,6 +270,9 @@ MVP version:
 Implemented first step:
 
 - `POST /api/glossary-suggest`
+- Glossary panel `Batch Suggest`
+- `Add all safe` writes safe suggestions into `ime:domain-glossary`
+- Added suggestions become available to the candidate picker immediately because `src/App.jsx` merges `userGlossaryCandidates(query, userGlossary)` before the bundled pinyin engine candidates.
 
 Request body:
 
@@ -306,6 +309,8 @@ Response shape:
 ```
 
 This endpoint only generates pending suggestions. It does not write to production glossary data and does not change candidate ranking until a human reviews and publishes the entries.
+
+The current UI can batch-add safe suggestions to the current browser glossary for immediate testing. This is still not a global cloud publish step; it updates browser-controlled product state only.
 
 Later version:
 
