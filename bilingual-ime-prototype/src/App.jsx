@@ -141,6 +141,24 @@ function userGlossaryTranslation(zh, language, entries) {
   return entry?.[language] || null;
 }
 
+function insertedTextChange(previous, next) {
+  let start = 0;
+  while (start < previous.length && start < next.length && previous[start] === next[start]) start += 1;
+
+  let previousEnd = previous.length;
+  let nextEnd = next.length;
+  while (previousEnd > start && nextEnd > start && previous[previousEnd - 1] === next[nextEnd - 1]) {
+    previousEnd -= 1;
+    nextEnd -= 1;
+  }
+
+  return {
+    inserted: next.slice(start, nextEnd),
+    start,
+    end: nextEnd,
+  };
+}
+
 function activeDomainBoosts(context) {
   return Object.fromEntries(Object.entries(domainContextHints)
     .filter(([, hints]) => hints.some((hint) => context.includes(hint)))
@@ -265,8 +283,12 @@ export function App() {
     );
     const chineseCandidates = rankedCandidates.map((zh) => ({ zh, kind: "zh" }));
     const english = englishCandidate(query, chineseCandidates[0]?.zh);
+    const englishItem = english ? { zh: english, kind: "en" } : null;
+    const shouldPrioritizeEnglish = /[A-Z]/.test(query);
     const matches = english
-      ? [chineseCandidates[0], { zh: english, kind: "en" }, ...chineseCandidates.slice(1)].filter(Boolean)
+      ? shouldPrioritizeEnglish
+        ? [englishItem, ...chineseCandidates].filter(Boolean)
+        : [chineseCandidates[0], englishItem, ...chineseCandidates.slice(1)].filter(Boolean)
       : chineseCandidates;
     return matches.map((candidate) => ({
       ...candidate,
@@ -538,7 +560,11 @@ export function App() {
     else if (event.key === "ArrowRight" && query) { event.preventDefault(); setQueryCursor((current) => Math.min(query.length, current + 1)); }
     else if (event.key === "-" && query && candidatePage > 0) { event.preventDefault(); setCandidatePage((current) => Math.max(0, current - 1)); setSelected(0); }
     else if (event.key === "=" && query && candidatePage < pageCount - 1) { event.preventDefault(); setCandidatePage((current) => Math.min(pageCount - 1, current + 1)); setSelected(0); }
-    else if ((event.key === "Enter" || event.key === " ") && query && pagedCandidates.length) { event.preventDefault(); commit(); }
+    else if ((event.key === "Enter" || event.key === " ") && query && pagedCandidates.length) {
+      event.preventDefault();
+      const candidate = pagedCandidates[selected];
+      commit(candidate, event.key === " " && candidate?.kind === "en" ? " " : "");
+    }
     else if (event.key === "Enter" && !query) {
       event.preventDefault();
       const editor = inputRefs.current[activeLine];
@@ -642,17 +668,20 @@ export function App() {
   function handleDraftChange(event, lineIndex) {
     setAllChineseSelected(false);
     const next = event.target.value;
-    const pinyin = next.match(/[a-z]+/gi)?.join("") ?? "";
-    if (query && next.includes("=") && candidatePage < pageCount - 1) {
+    const previous = draftLines[lineIndex] ?? "";
+    const change = insertedTextChange(previous, next);
+    const pinyin = change.inserted.match(/[a-z]+/gi)?.join("") ?? "";
+    if (query && change.inserted.includes("=") && candidatePage < pageCount - 1) {
       setCandidatePage((current) => Math.min(pageCount - 1, current + 1));
       setSelected(0);
     }
-    if (query && next.includes("-") && candidatePage > 0) {
+    if (query && change.inserted.includes("-") && candidatePage > 0) {
       setCandidatePage((current) => Math.max(0, current - 1));
       setSelected(0);
     }
-    const controlPattern = query ? /[a-z=-]+/gi : /[=-]+/gi;
-    setDraftLines((current) => current.map((line, index) => (index === lineIndex ? next.replace(controlPattern, "") : line)));
+    const cleanedInserted = change.inserted.replace(/[a-z=-]+/gi, "");
+    const cleanedNext = `${next.slice(0, change.start)}${cleanedInserted}${next.slice(change.end)}`;
+    setDraftLines((current) => current.map((line, index) => (index === lineIndex ? cleanedNext : line)));
     if (pinyin) {
       setQuery((current) => `${current.slice(0, queryCursor)}${pinyin}${current.slice(queryCursor)}`);
       setQueryCursor((current) => current + pinyin.length);
