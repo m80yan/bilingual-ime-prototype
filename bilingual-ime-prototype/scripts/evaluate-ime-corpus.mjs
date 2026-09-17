@@ -1,4 +1,4 @@
-import { domainGlossarySeedEntries } from "../src/data/domainGlossarySeed.js";
+import { domainGlossaryPinyinIndex, domainGlossarySeedEntries, normalizeGlossaryPinyin } from "../src/data/domainGlossarySeed.js";
 import { imeEvaluationCases } from "../src/data/imeEvaluationCases.js";
 
 function normalizePinyin(value) {
@@ -13,6 +13,11 @@ for (const testCase of imeEvaluationCases) {
   if (!entry) {
     failures.push(`${testCase.input}: missing glossary entry for ${testCase.expectedCandidate}`);
     continue;
+  }
+
+  const indexedCandidates = domainGlossaryPinyinIndex[normalizeGlossaryPinyin(testCase.input)] ?? [];
+  if (!indexedCandidates.some((candidate) => candidate.zh === testCase.expectedCandidate)) {
+    failures.push(`${testCase.input}: pinyin index does not include ${testCase.expectedCandidate}`);
   }
 
   if (normalizePinyin(entry.pinyin) !== normalizePinyin(testCase.input)) {

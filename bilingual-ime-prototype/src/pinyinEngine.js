@@ -1,5 +1,5 @@
 import { dict } from "./vendor/web-pinyin-ime/google_pinyin_dict_utf8_55320";
-import { domainGlossarySeedEntries } from "./data/domainGlossarySeed";
+import { domainGlossaryPinyinIndex, normalizeGlossaryPinyin } from "./data/domainGlossarySeed";
 
 const keys = Object.keys(dict);
 const syllableKeys = new Set(keys.filter((key) => key.length <= 6 && dict[key]?.some((item) => item.w.length === 1)));
@@ -129,8 +129,7 @@ function mixedCandidates(input, limit) {
 
 function domainGlossaryCandidates(input, limit) {
   return unique(
-    domainGlossarySeedEntries
-      .filter((entry) => entry.pinyin === input)
+    (domainGlossaryPinyinIndex[normalizeGlossaryPinyin(input)] ?? [])
       .map((entry) => entry.zh),
     limit,
   );

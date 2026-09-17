@@ -44,3 +44,33 @@ export const domainGlossarySeedEntries = [
   { zh: "星球大战计划", pinyin: "xingqiudazhanjihua", en: "the Strategic Defense Initiative", ja: "戦略防衛構想", domain: "history-politics", aliases: ["战略防御倡议"], status: "reviewed" },
   { zh: "西历", pinyin: "xili", en: "the Western calendar", ja: "西暦", domain: "general", status: "reviewed" },
 ];
+
+const domainDefaultWeights = {
+  "design-uiux": 95,
+  "internet-slang": 92,
+  history: 86,
+  "history-politics": 86,
+  place: 84,
+  general: 80,
+};
+
+export function glossaryEntryWeight(entry) {
+  return entry.weight ?? domainDefaultWeights[entry.domain] ?? 70;
+}
+
+export function normalizeGlossaryPinyin(value) {
+  return value.toLowerCase().replace(/[^a-z]/g, "");
+}
+
+export function buildGlossaryPinyinIndex(entries = domainGlossarySeedEntries) {
+  return entries.reduce((index, entry) => {
+    const key = normalizeGlossaryPinyin(entry.pinyin);
+    if (!key) return index;
+    if (!index[key]) index[key] = [];
+    index[key].push(entry);
+    index[key].sort((left, right) => glossaryEntryWeight(right) - glossaryEntryWeight(left));
+    return index;
+  }, {});
+}
+
+export const domainGlossaryPinyinIndex = buildGlossaryPinyinIndex();

@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getPinyinCandidates, remainingPinyinAfterLeadingCandidate } from "./pinyinEngine";
 import cedictTranslations from "./data/cedict-en.json";
-import { domainGlossarySeedEntries } from "./data/domainGlossarySeed";
+import { domainGlossarySeedEntries, glossaryEntryWeight } from "./data/domainGlossarySeed";
 
 const localTranslations = {
   "我": { en: "I; me", ja: "私" }, "你": { en: "you", ja: "あなた" }, "他": { en: "he; him", ja: "彼" },
@@ -44,6 +44,12 @@ const seedGlossaryEntries = domainGlossarySeedEntries.map((entry) => ({
   domain: entry.domain,
   locked: true,
 }));
+const domainContextHints = {
+  "design-uiux": ["按钮", "页面", "用户", "设计", "体验", "组件", "界面", "交互", "流程", "原型", "Figma", "figma"],
+  "internet-slang": ["公司", "业务", "团队", "绩效", "组织", "老板", "会议", "需求", "项目", "上线", "landing"],
+  history: ["历史", "俄罗斯", "蒙古", "罗斯", "冷战", "帝国"],
+  "history-politics": ["冷战", "战略", "美国", "苏联", "计划"],
+};
 
 function isChineseText(text) {
   return /[\u3400-\u9fff]/.test(text);
@@ -134,10 +140,25 @@ function userGlossaryTranslation(zh, language, entries) {
   return entry?.[language] || null;
 }
 
-function rankWithUserDictionary(candidates, pinyin, dictionary) {
+function activeDomainBoosts(context) {
+  return Object.fromEntries(Object.entries(domainContextHints)
+    .filter(([, hints]) => hints.some((hint) => context.includes(hint)))
+    .map(([domain]) => [domain, 25]));
+}
+
+function rankWithUserDictionary(candidates, pinyin, dictionary, glossary, context) {
   const learned = dictionary[normalizePinyin(pinyin)] ?? {};
+  const domainBoosts = activeDomainBoosts(context);
   return [...new Set(candidates)]
-    .map((zh, index) => ({ zh, index, learned: learned[zh] }))
+    .map((zh, index) => {
+      const glossaryEntry = glossary.find((entry) => entry.zh === zh);
+      return {
+        zh,
+        index,
+        learned: learned[zh],
+        domainScore: glossaryEntry ? glossaryEntryWeight(glossaryEntry) + (domainBoosts[glossaryEntry.domain] ?? 0) : 0,
+      };
+    })
     .sort((left, right) => {
       const leftCount = left.learned?.count ?? 0;
       const rightCount = right.learned?.count ?? 0;
@@ -145,6 +166,7 @@ function rankWithUserDictionary(candidates, pinyin, dictionary) {
       const leftUsed = left.learned?.lastUsedAt ?? 0;
       const rightUsed = right.learned?.lastUsedAt ?? 0;
       if (leftUsed !== rightUsed) return rightUsed - leftUsed;
+      if (left.domainScore !== right.domainScore) return right.domainScore - left.domainScore;
       return left.index - right.index;
     })
     .map((item) => item.zh);
@@ -232,10 +254,13 @@ export function App() {
   }
 
   const visibleCandidates = useMemo(() => {
+    const context = draftLines.join("");
     const rankedCandidates = rankWithUserDictionary(
       [...userGlossaryCandidates(query, userGlossary), ...getPinyinCandidates(query)],
       query,
       userDictionary,
+      userGlossary,
+      context,
     );
     const chineseCandidates = rankedCandidates.map((zh) => ({ zh, kind: "zh" }));
     const english = englishCandidate(query, chineseCandidates[0]?.zh);
@@ -247,7 +272,7 @@ export function App() {
       en: candidate.kind === "en" ? "English" : undefined,
       ja: candidate.kind === "en" ? "英語" : undefined,
     }));
-  }, [query, translations, userDictionary, userGlossary]);
+  }, [query, translations, userDictionary, userGlossary, draftLines]);
   const pageCount = Math.max(1, Math.ceil(visibleCandidates.length / PAGE_SIZE));
   const pagedCandidates = visibleCandidates.slice(candidatePage * PAGE_SIZE, candidatePage * PAGE_SIZE + PAGE_SIZE);
   const selectedCandidate = pagedCandidates[selected];
