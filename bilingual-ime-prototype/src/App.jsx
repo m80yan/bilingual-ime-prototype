@@ -381,8 +381,8 @@ export function App() {
     }
     else if (event.key === "ArrowLeft" && query) { event.preventDefault(); setQueryCursor((current) => Math.max(0, current - 1)); }
     else if (event.key === "ArrowRight" && query) { event.preventDefault(); setQueryCursor((current) => Math.min(query.length, current + 1)); }
-    else if (event.key === "-" && query && pageCount > 1) { event.preventDefault(); setCandidatePage((current) => (current - 1 + pageCount) % pageCount); setSelected(0); }
-    else if (event.key === "=" && query && pageCount > 1) { event.preventDefault(); setCandidatePage((current) => (current + 1) % pageCount); setSelected(0); }
+    else if (event.key === "-" && query && candidatePage > 0) { event.preventDefault(); setCandidatePage((current) => Math.max(0, current - 1)); setSelected(0); }
+    else if (event.key === "=" && query && candidatePage < pageCount - 1) { event.preventDefault(); setCandidatePage((current) => Math.min(pageCount - 1, current + 1)); setSelected(0); }
     else if ((event.key === "Enter" || event.key === " ") && query && pagedCandidates.length) { event.preventDefault(); commit(); }
     else if (event.key === "Enter" && !query) {
       event.preventDefault();
@@ -488,12 +488,12 @@ export function App() {
     setAllChineseSelected(false);
     const next = event.target.value;
     const pinyin = next.match(/[a-z]+/gi)?.join("").toLowerCase() ?? "";
-    if (query && next.includes("=") && pageCount > 1) {
-      setCandidatePage((current) => (current + 1) % pageCount);
+    if (query && next.includes("=") && candidatePage < pageCount - 1) {
+      setCandidatePage((current) => Math.min(pageCount - 1, current + 1));
       setSelected(0);
     }
-    if (query && next.includes("-") && pageCount > 1) {
-      setCandidatePage((current) => (current - 1 + pageCount) % pageCount);
+    if (query && next.includes("-") && candidatePage > 0) {
+      setCandidatePage((current) => Math.max(0, current - 1));
       setSelected(0);
     }
     const controlPattern = query ? /[a-z=-]+/gi : /[=-]+/gi;
@@ -633,12 +633,10 @@ export function App() {
                 <div className="candidate-translation">
                   {selectedCandidate ? translationPair(selectedCandidate).secondary : ""}
                 </div>
-                {pageCount > 1 && (
-                  <div className="candidate-page-controls" aria-label="候选翻页">
-                    <button className="candidate-page-button" type="button" aria-label="上一页" disabled={pageCount <= 1} onClick={() => { setCandidatePage((current) => (current - 1 + pageCount) % pageCount); setSelected(0); }}><span className="page-arrow up" /></button>
-                    <button className="candidate-page-button" type="button" aria-label="下一页" disabled={pageCount <= 1} onClick={() => { setCandidatePage((current) => (current + 1) % pageCount); setSelected(0); }}><span className="page-arrow down" /></button>
-                  </div>
-                )}
+                <div className="candidate-page-controls" aria-label="候选翻页">
+                  <button className="candidate-page-button" type="button" aria-label="上一页" disabled={candidatePage === 0} onClick={() => { setCandidatePage((current) => Math.max(0, current - 1)); setSelected(0); }}><span className="page-arrow up" /></button>
+                  <button className="candidate-page-button" type="button" aria-label="下一页" disabled={candidatePage >= pageCount - 1} onClick={() => { setCandidatePage((current) => Math.min(pageCount - 1, current + 1)); setSelected(0); }}><span className="page-arrow down" /></button>
+                </div>
               </div>
             )}
           </div>
