@@ -816,9 +816,7 @@ export function App() {
       <section className="ime-window" style={{ width: windowSize.width, height: windowSize.height }} aria-label="Chinese bilingual input tool">
         <header className="ime-header">
           <div className="header-controls">
-            <span className="locked-language" aria-label="Primary language: Simplified Chinese">简体中文</span>
-            <span className="field-label primary-label">Primary</span>
-            <span className="field-label secondary-label">Secondary</span>
+            <span className="field-label secondary-label">Live translation</span>
             {secondaryLanguageCombo()}
           </div>
         </header>
