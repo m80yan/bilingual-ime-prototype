@@ -35,6 +35,7 @@ const punctuationMap = {
 const PAGE_SIZE = 5;
 const USER_DICTIONARY_KEY = "ime:user-dictionary";
 const USER_GLOSSARY_KEY = "ime:domain-glossary";
+const USER_LEARNING_HALF_LIFE_MS = 1000 * 60 * 60 * 24 * 7;
 const emptyGlossaryDraft = { zh: "", pinyin: "", en: "", ja: "", domain: "common" };
 const seedGlossaryEntries = domainGlossarySeedEntries.map((entry) => ({
   zh: entry.zh,
@@ -173,27 +174,38 @@ function activeDomainBoosts(context) {
     .map(([domain]) => [domain, 25]));
 }
 
+function recencyScore(lastUsedAt) {
+  if (!lastUsedAt) return 0;
+  const age = Math.max(0, Date.now() - lastUsedAt);
+  return Math.max(0, 30 * (1 - age / USER_LEARNING_HALF_LIFE_MS));
+}
+
+function contextBoost(zh, context) {
+  if (!zh || !context) return 0;
+  return context.includes(zh) ? 18 : 0;
+}
+
 function rankWithUserDictionary(candidates, pinyin, dictionary, glossary, context) {
   const learned = dictionary[normalizePinyin(pinyin)] ?? {};
   const domainBoosts = activeDomainBoosts(context);
   return [...new Set(candidates)]
     .map((zh, index) => {
       const glossaryEntry = glossary.find((entry) => entry.zh === zh);
+      const learnedEntry = learned[zh];
+      const baseScore = Math.max(0, 100 - index * 3);
+      const userScore = Math.min(60, (learnedEntry?.count ?? 0) * 16);
       return {
         zh,
         index,
-        learned: learned[zh],
-        domainScore: glossaryEntry ? glossaryEntryWeight(glossaryEntry) + (domainBoosts[glossaryEntry.domain] ?? 0) : 0,
+        score: baseScore
+          + userScore
+          + recencyScore(learnedEntry?.lastUsedAt)
+          + contextBoost(zh, context)
+          + (glossaryEntry ? glossaryEntryWeight(glossaryEntry) * 0.45 + (domainBoosts[glossaryEntry.domain] ?? 0) : 0),
       };
     })
     .sort((left, right) => {
-      const leftCount = left.learned?.count ?? 0;
-      const rightCount = right.learned?.count ?? 0;
-      if (leftCount !== rightCount) return rightCount - leftCount;
-      const leftUsed = left.learned?.lastUsedAt ?? 0;
-      const rightUsed = right.learned?.lastUsedAt ?? 0;
-      if (leftUsed !== rightUsed) return rightUsed - leftUsed;
-      if (left.domainScore !== right.domainScore) return right.domainScore - left.domainScore;
+      if (left.score !== right.score) return right.score - left.score;
       return left.index - right.index;
     })
     .map((item) => item.zh);
@@ -525,6 +537,11 @@ export function App() {
     replaceDraftSelection(`${candidate?.zh ?? ""}${suffix}`);
     setQuery(remainingQuery);
     setQueryCursor(remainingQuery.length);
+  }
+
+  function clearLearningData() {
+    writeUserDictionary({});
+    setUserDictionary({});
   }
 
   function handleKeyDown(event) {
@@ -898,7 +915,10 @@ export function App() {
           </div>
         </section>
         <footer className="ime-footer"><span>{`Smart ${footerLanguageLabel} output as you write Chinese`}</span><button className={resizing ? "resize-handle active" : "resize-handle"} onPointerDown={startResize} aria-label="Drag to resize window"><span className="resize-grip" aria-hidden="true">{[1, 2, 3].map((count) => <span className="resize-grip-row" key={count}>{Array.from({ length: count }, (_, index) => <img key={index} src={resizing ? "/assets/figma-drag-handle-pressed.svg" : "/assets/figma-drag-handle-default.svg"} alt="" />)}</span>)}</span></button></footer>
-        <button className="glossary-trigger" type="button" onClick={() => setIsGlossaryOpen(true)}>Glossary</button>
+        <div className="footer-tools">
+          <button className="glossary-trigger" type="button" onClick={() => setIsGlossaryOpen(true)}>Glossary</button>
+          <button className="learning-reset" type="button" onClick={clearLearningData}>Reset learning</button>
+        </div>
         {isGlossaryOpen && (
           <div className="glossary-overlay" role="dialog" aria-modal="true" aria-label="Editable glossary">
             <form className="glossary-panel" onSubmit={saveGlossaryEntry}>
