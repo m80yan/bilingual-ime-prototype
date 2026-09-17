@@ -35,6 +35,7 @@ const punctuationMap = {
 const PAGE_SIZE = 5;
 const USER_DICTIONARY_KEY = "ime:user-dictionary";
 const USER_GLOSSARY_KEY = "ime:domain-glossary";
+const MISSED_QUERIES_KEY = "ime:missed-queries";
 const USER_LEARNING_HALF_LIFE_MS = 1000 * 60 * 60 * 24 * 7;
 const emptyGlossaryDraft = { zh: "", pinyin: "", en: "", ja: "", domain: "common" };
 const glossarySuggestionDomains = new Set(["design-uiux", "internet-slang", "history", "history-politics", "place", "auto", "ui", "movie", "device", "education", "business", "technology", "general"]);
@@ -131,6 +132,24 @@ function writeUserGlossary(entries) {
     window.localStorage.setItem(USER_GLOSSARY_KEY, JSON.stringify(entries));
   } catch {
     // Ignore storage failures; custom candidates are an enhancement.
+  }
+}
+
+function readMissedQueries() {
+  try {
+    const saved = window.localStorage.getItem(MISSED_QUERIES_KEY);
+    const entries = saved ? JSON.parse(saved) : [];
+    return Array.isArray(entries) ? entries : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeMissedQueries(entries) {
+  try {
+    window.localStorage.setItem(MISSED_QUERIES_KEY, JSON.stringify(entries));
+  } catch {
+    // Ignore storage failures; missed-query capture should never block typing.
   }
 }
 
@@ -289,6 +308,7 @@ export function App() {
   const [glossarySuggestions, setGlossarySuggestions] = useState([]);
   const [isSuggestingGlossary, setIsSuggestingGlossary] = useState(false);
   const [glossarySuggestError, setGlossarySuggestError] = useState("");
+  const [missedQueries, setMissedQueries] = useState(() => readMissedQueries());
   const [playedTranslations, setPlayedTranslations] = useState({});
   const [loadingSegments, setLoadingSegments] = useState({});
   const [activeLine, setActiveLine] = useState(0);
@@ -319,16 +339,19 @@ export function App() {
       ?? (language === "en" ? "…" : "翻訳中…");
   }
 
-  const visibleCandidates = useMemo(() => {
+  const rankedChineseCandidates = useMemo(() => {
     const context = draftLines.join("");
-    const rankedCandidates = rankWithUserDictionary(
+    return rankWithUserDictionary(
       [...userGlossaryCandidates(query, userGlossary), ...getPinyinCandidates(query)],
       query,
       userDictionary,
       userGlossary,
       context,
     );
-    const chineseCandidates = rankedCandidates.map((zh) => ({ zh, kind: "zh" }));
+  }, [query, userDictionary, userGlossary, draftLines]);
+
+  const visibleCandidates = useMemo(() => {
+    const chineseCandidates = rankedChineseCandidates.map((zh) => ({ zh, kind: "zh" }));
     const shouldPrioritizeEnglish = /[A-Z]/.test(query);
     const shouldOfferFallbackEnglish = shouldPrioritizeEnglish || !chineseCandidates.length || query.length <= 12;
     const english = shouldOfferFallbackEnglish ? englishCandidate(query, chineseCandidates[0]?.zh) : properEnglishCandidate(chineseCandidates[0]?.zh);
@@ -343,13 +366,19 @@ export function App() {
       en: candidate.kind === "en" ? "English" : undefined,
       ja: candidate.kind === "en" ? "英語" : undefined,
     }));
-  }, [query, translations, userDictionary, userGlossary, draftLines]);
+  }, [query, rankedChineseCandidates]);
   const pageCount = Math.max(1, Math.ceil(visibleCandidates.length / PAGE_SIZE));
   const pagedCandidates = visibleCandidates.slice(candidatePage * PAGE_SIZE, candidatePage * PAGE_SIZE + PAGE_SIZE);
   const selectedCandidate = pagedCandidates[selected];
   const footerLanguageLabel = secondaryLanguage === "ja" ? "Japanese" : "English";
 
   useEffect(() => { setSelected(0); setCandidatePage(0); }, [query]);
+
+  useEffect(() => {
+    const key = normalizePinyin(query);
+    if (key.length < 6 || rankedChineseCandidates.length) return;
+    recordMissedQuery(key, "no_chinese_candidates");
+  }, [query, rankedChineseCandidates]);
 
   useEffect(() => {
     setQueryCursor((current) => Math.min(current, query.length));
@@ -570,6 +599,27 @@ export function App() {
     setUserDictionary({});
   }
 
+  function recordMissedQuery(pinyin, reason) {
+    const key = normalizePinyin(pinyin);
+    if (key.length < 4) return;
+    const context = draftLines.join("\n").slice(-240);
+    setMissedQueries((current) => {
+      const existing = current.find((item) => item.pinyin === key);
+      const nextEntry = {
+        pinyin: key,
+        context,
+        reason,
+        count: (existing?.count ?? 0) + 1,
+        lastSeenAt: Date.now(),
+      };
+      const next = [nextEntry, ...current.filter((item) => item.pinyin !== key)]
+        .sort((left, right) => (right.count - left.count) || (right.lastSeenAt - left.lastSeenAt))
+        .slice(0, 80);
+      writeMissedQueries(next);
+      return next;
+    });
+  }
+
   function handleKeyDown(event) {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "a") {
       event.preventDefault();
@@ -633,7 +683,13 @@ export function App() {
     else if (event.key === "ArrowLeft" && query) { event.preventDefault(); setQueryCursor((current) => Math.max(0, current - 1)); }
     else if (event.key === "ArrowRight" && query) { event.preventDefault(); setQueryCursor((current) => Math.min(query.length, current + 1)); }
     else if (event.key === "-" && query && candidatePage > 0) { event.preventDefault(); setCandidatePage((current) => Math.max(0, current - 1)); setSelected(0); }
-    else if (event.key === "=" && query && candidatePage < pageCount - 1) { event.preventDefault(); setCandidatePage((current) => Math.min(pageCount - 1, current + 1)); setSelected(0); }
+    else if (event.key === "=" && query && candidatePage < pageCount - 1) {
+      event.preventDefault();
+      const nextPage = Math.min(pageCount - 1, candidatePage + 1);
+      if (nextPage === pageCount - 1) recordMissedQuery(query, "reached_last_candidate_page");
+      setCandidatePage(nextPage);
+      setSelected(0);
+    }
     else if ((event.key === "Enter" || event.key === " ") && query && pagedCandidates.length) {
       event.preventDefault();
       const candidate = pagedCandidates[selected];
@@ -842,6 +898,40 @@ export function App() {
     }
   }
 
+  async function generateGlossarySuggestionsFromMissed() {
+    const topMisses = missedQueries.slice(0, 16);
+    if (!topMisses.length) {
+      setGlossarySuggestError("No missed queries captured yet.");
+      return;
+    }
+
+    setIsSuggestingGlossary(true);
+    setGlossarySuggestError("");
+    try {
+      const response = await fetch("/api/glossary-suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          texts: topMisses.map((item) => item.context).filter(Boolean),
+          hints: topMisses.map((item) => item.pinyin),
+          limit: 16,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Suggestion failed.");
+      setGlossarySuggestions(Array.isArray(result.suggestions) ? result.suggestions : []);
+    } catch (error) {
+      setGlossarySuggestError(error.message || "Suggestion failed.");
+    } finally {
+      setIsSuggestingGlossary(false);
+    }
+  }
+
+  function clearMissedQueries() {
+    writeMissedQueries([]);
+    setMissedQueries([]);
+  }
+
   function addSafeGlossarySuggestions() {
     const safeEntries = glossarySuggestions
       .map((item) => safeGlossarySuggestion(item, userGlossary))
@@ -991,7 +1081,12 @@ export function App() {
                 </div>
                 <div className="candidate-page-controls" aria-label="候选翻页">
                   <button className="candidate-page-button" type="button" aria-label="上一页" disabled={candidatePage === 0} onClick={() => { setCandidatePage((current) => Math.max(0, current - 1)); setSelected(0); }}><span className="page-arrow up" /></button>
-                  <button className="candidate-page-button" type="button" aria-label="下一页" disabled={candidatePage >= pageCount - 1} onClick={() => { setCandidatePage((current) => Math.min(pageCount - 1, current + 1)); setSelected(0); }}><span className="page-arrow down" /></button>
+                  <button className="candidate-page-button" type="button" aria-label="下一页" disabled={candidatePage >= pageCount - 1} onClick={() => {
+                    const nextPage = Math.min(pageCount - 1, candidatePage + 1);
+                    if (query && nextPage === pageCount - 1) recordMissedQuery(query, "reached_last_candidate_page");
+                    setCandidatePage(nextPage);
+                    setSelected(0);
+                  }}><span className="page-arrow down" /></button>
                 </div>
               </div>
             )}
@@ -1017,7 +1112,9 @@ export function App() {
                 <label>Hints<input value={suggestHints} onChange={(event) => setSuggestHints(event.target.value)} placeholder="Optional: terms, comma separated" /></label>
                 <div className="glossary-actions">
                   <button type="button" onClick={generateGlossarySuggestions} disabled={isSuggestingGlossary}>{isSuggestingGlossary ? "Generating…" : "Generate suggestions"}</button>
+                  <button type="button" onClick={generateGlossarySuggestionsFromMissed} disabled={isSuggestingGlossary || !missedQueries.length}>Generate from missed ({missedQueries.length})</button>
                   <button type="button" onClick={addSafeGlossarySuggestions} disabled={!glossarySuggestions.length}>Add all safe</button>
+                  <button type="button" onClick={clearMissedQueries} disabled={!missedQueries.length}>Clear missed</button>
                 </div>
                 {glossarySuggestError && <div className="glossary-error">{glossarySuggestError}</div>}
                 {glossarySuggestions.length > 0 && (

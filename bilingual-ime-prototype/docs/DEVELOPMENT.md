@@ -273,6 +273,8 @@ Implemented first step:
 - Glossary panel `Batch Suggest`
 - `Add all safe` writes safe suggestions into `ime:domain-glossary`
 - Added suggestions become available to the candidate picker immediately because `src/App.jsx` merges `userGlossaryCandidates(query, userGlossary)` before the bundled pinyin engine candidates.
+- Missed-query capture stores real candidate gaps in `ime:missed-queries`.
+- `Generate from missed` sends captured pinyin misses and surrounding context to `/api/glossary-suggest`.
 
 Request body:
 
@@ -311,6 +313,23 @@ Response shape:
 This endpoint only generates pending suggestions. It does not write to production glossary data and does not change candidate ranking until a human reviews and publishes the entries.
 
 The current UI can batch-add safe suggestions to the current browser glossary for immediate testing. This is still not a global cloud publish step; it updates browser-controlled product state only.
+
+Missed-query triggers:
+
+- pinyin length is at least 6 and there are no Chinese candidates
+- user reaches the last candidate page while still composing pinyin
+
+Missed-query records include:
+
+```json
+{
+  "pinyin": "examplepinyin",
+  "context": "surrounding Chinese editor context",
+  "reason": "no_chinese_candidates",
+  "count": 1,
+  "lastSeenAt": 1790000000000
+}
+```
 
 Later version:
 
