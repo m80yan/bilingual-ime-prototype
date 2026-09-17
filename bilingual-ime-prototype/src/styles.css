@@ -4,7 +4,7 @@ body { min-width: 800px; margin: 0; min-height: 100vh; background: #fafafa; }
 button, input, textarea { font: inherit; }
 button { color: inherit; }
 .input-stage { position: relative; display: grid; place-items: center; width: max(100vw, 1112px); min-height: max(100vh, 654px); padding: 67px; overflow: hidden; background: #fafafa; }
-.ime-window { position: relative; display: grid; grid-template-rows: 84px minmax(0, 1fr) 36px; min-width: 800px; min-height: 450px; background: #fff; border: 1px solid #e5e5e5; }
+.ime-window { position: relative; display: grid; grid-template-rows: 44px minmax(0, 1fr) 36px; min-width: 800px; min-height: 450px; background: #fff; border: 1px solid #e5e5e5; }
 .ime-header { position: relative; background: #f1f1f1; border-bottom: 1px solid #ebebeb; }
 .header-controls { position: absolute; inset: 0 auto auto 8px; width: 242px; height: 44px; }
 .language-combo { position: absolute; left: 0; z-index: 2; width: 114px; }.secondary-combo { top: 8px; }
