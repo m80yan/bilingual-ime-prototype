@@ -33,6 +33,8 @@ const punctuationMap = {
 };
 const PAGE_SIZE = 5;
 const USER_DICTIONARY_KEY = "ime:user-dictionary";
+const USER_GLOSSARY_KEY = "ime:domain-glossary";
+const emptyGlossaryDraft = { zh: "", pinyin: "", en: "", ja: "", domain: "common" };
 
 function isChineseText(text) {
   return /[\u3400-\u9fff]/.test(text);
@@ -86,13 +88,44 @@ function writeUserDictionary(dictionary) {
   }
 }
 
+function readUserGlossary() {
+  try {
+    const saved = window.localStorage.getItem(USER_GLOSSARY_KEY);
+    const entries = saved ? JSON.parse(saved) : [];
+    return Array.isArray(entries) ? entries : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeUserGlossary(entries) {
+  try {
+    window.localStorage.setItem(USER_GLOSSARY_KEY, JSON.stringify(entries));
+  } catch {
+    // Ignore storage failures; custom candidates are an enhancement.
+  }
+}
+
 function normalizePinyin(value) {
   return value.toLowerCase().replace(/[^a-z]/g, "");
 }
 
+function userGlossaryCandidates(pinyin, entries) {
+  const key = normalizePinyin(pinyin);
+  if (!key) return [];
+  return entries
+    .filter((entry) => normalizePinyin(entry.pinyin) === key && entry.zh)
+    .map((entry) => entry.zh);
+}
+
+function userGlossaryTranslation(zh, language, entries) {
+  const entry = entries.find((item) => item.zh === zh);
+  return entry?.[language] || null;
+}
+
 function rankWithUserDictionary(candidates, pinyin, dictionary) {
   const learned = dictionary[normalizePinyin(pinyin)] ?? {};
-  return candidates
+  return [...new Set(candidates)]
     .map((zh, index) => ({ zh, index, learned: learned[zh] }))
     .sort((left, right) => {
       const leftCount = left.learned?.count ?? 0;
@@ -155,6 +188,9 @@ export function App() {
   const [softBreaks, setSoftBreaks] = useState([false]);
   const [translations, setTranslations] = useState({});
   const [userDictionary, setUserDictionary] = useState(() => readUserDictionary());
+  const [userGlossary, setUserGlossary] = useState(() => readUserGlossary());
+  const [isGlossaryOpen, setIsGlossaryOpen] = useState(false);
+  const [glossaryDraft, setGlossaryDraft] = useState(emptyGlossaryDraft);
   const [playedTranslations, setPlayedTranslations] = useState({});
   const [loadingSegments, setLoadingSegments] = useState({});
   const [activeLine, setActiveLine] = useState(0);
@@ -178,13 +214,18 @@ export function App() {
     }
 
     return translations[`${language}:${zh}`]
+      ?? userGlossaryTranslation(zh, language, userGlossary)
       ?? localTranslations[zh]?.[language]
       ?? (language === "en" && cedictTranslations[zh]?.length ? cedictTranslations[zh].join("; ") : null)
       ?? (language === "en" ? "…" : "翻訳中…");
   }
 
   const visibleCandidates = useMemo(() => {
-    const rankedCandidates = rankWithUserDictionary(getPinyinCandidates(query), query, userDictionary);
+    const rankedCandidates = rankWithUserDictionary(
+      [...userGlossaryCandidates(query, userGlossary), ...getPinyinCandidates(query)],
+      query,
+      userDictionary,
+    );
     const chineseCandidates = rankedCandidates.map((zh) => ({ zh, kind: "zh" }));
     const english = englishCandidate(query, chineseCandidates[0]?.zh);
     const matches = english
@@ -195,7 +236,7 @@ export function App() {
       en: candidate.kind === "en" ? "English" : undefined,
       ja: candidate.kind === "en" ? "英語" : undefined,
     }));
-  }, [query, translations, userDictionary]);
+  }, [query, translations, userDictionary, userGlossary]);
   const pageCount = Math.max(1, Math.ceil(visibleCandidates.length / PAGE_SIZE));
   const pagedCandidates = visibleCandidates.slice(candidatePage * PAGE_SIZE, candidatePage * PAGE_SIZE + PAGE_SIZE);
   const selectedCandidate = pagedCandidates[selected];
@@ -242,6 +283,7 @@ export function App() {
     const pending = [...new Set(pendingSource.filter(Boolean))]
       .filter((zh) => !localTranslations[zh]?.[secondaryLanguage]
         && !(splitFinalPunctuation(zh).body !== zh && translationFor(splitFinalPunctuation(zh).body, secondaryLanguage) !== (secondaryLanguage === "en" ? "…" : "翻訳中…"))
+        && !userGlossaryTranslation(zh, secondaryLanguage, userGlossary)
         && !(secondaryLanguage === "en" && cedictTranslations[zh]?.length)
         && !translations[`${secondaryLanguage}:${zh}`]);
 
@@ -274,7 +316,7 @@ export function App() {
     }, 300);
 
     return () => { window.clearTimeout(debounce); controller.abort(); };
-  }, [query, selectedCandidate?.zh, selectedCandidate?.kind, draftLines, secondaryLanguage]);
+  }, [query, selectedCandidate?.zh, selectedCandidate?.kind, draftLines, secondaryLanguage, userGlossary]);
 
   useEffect(() => {
     function resize(event) {
@@ -286,6 +328,17 @@ export function App() {
     window.addEventListener("pointermove", resize);
     window.addEventListener("pointerup", stop);
     return () => { window.removeEventListener("pointermove", resize); window.removeEventListener("pointerup", stop); };
+  }, []);
+
+  useEffect(() => {
+    function openGlossary(event) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setIsGlossaryOpen(true);
+      }
+    }
+    window.addEventListener("keydown", openGlossary);
+    return () => window.removeEventListener("keydown", openGlossary);
   }, []);
 
   function replaceDraftSelection(text) {
@@ -580,6 +633,42 @@ export function App() {
     setIsSecondaryMenuOpen(false);
   }
 
+  function updateGlossaryDraft(field, value) {
+    setGlossaryDraft((current) => ({ ...current, [field]: value }));
+  }
+
+  function saveGlossaryEntry(event) {
+    event.preventDefault();
+    const entry = {
+      zh: glossaryDraft.zh.trim(),
+      pinyin: glossaryDraft.pinyin.trim(),
+      en: glossaryDraft.en.trim(),
+      ja: glossaryDraft.ja.trim(),
+      domain: glossaryDraft.domain.trim() || "common",
+    };
+    if (!entry.zh || !entry.pinyin) return;
+    setUserGlossary((current) => {
+      const withoutDuplicate = current.filter((item) => !(item.zh === entry.zh && normalizePinyin(item.pinyin) === normalizePinyin(entry.pinyin)));
+      const next = [entry, ...withoutDuplicate].slice(0, 200);
+      writeUserGlossary(next);
+      return next;
+    });
+    setTranslations((current) => ({
+      ...current,
+      ...(entry.en ? { [`en:${entry.zh}`]: entry.en } : {}),
+      ...(entry.ja ? { [`ja:${entry.zh}`]: entry.ja } : {}),
+    }));
+    setGlossaryDraft(emptyGlossaryDraft);
+  }
+
+  function removeGlossaryEntry(indexToRemove) {
+    setUserGlossary((current) => {
+      const next = current.filter((_, index) => index !== indexToRemove);
+      writeUserGlossary(next);
+      return next;
+    });
+  }
+
   function translationPair(item) {
     return {
       primary: item.zh,
@@ -707,6 +796,30 @@ export function App() {
           </div>
         </section>
         <footer className="ime-footer"><span>{`Smart ${footerLanguageLabel} output as you write Chinese`}</span><button className={resizing ? "resize-handle active" : "resize-handle"} onPointerDown={startResize} aria-label="Drag to resize window"><span className="resize-grip" aria-hidden="true">{[1, 2, 3].map((count) => <span className="resize-grip-row" key={count}>{Array.from({ length: count }, (_, index) => <img key={index} src={resizing ? "/assets/figma-drag-handle-pressed.svg" : "/assets/figma-drag-handle-default.svg"} alt="" />)}</span>)}</span></button></footer>
+        <button className="glossary-trigger" type="button" onClick={() => setIsGlossaryOpen(true)}>Glossary</button>
+        {isGlossaryOpen && (
+          <div className="glossary-overlay" role="dialog" aria-modal="true" aria-label="Editable glossary">
+            <form className="glossary-panel" onSubmit={saveGlossaryEntry}>
+              <div className="glossary-title">Glossary</div>
+              <label>中文<input value={glossaryDraft.zh} onChange={(event) => updateGlossaryDraft("zh", event.target.value)} /></label>
+              <label>拼音<input value={glossaryDraft.pinyin} onChange={(event) => updateGlossaryDraft("pinyin", event.target.value)} /></label>
+              <label>English<input value={glossaryDraft.en} onChange={(event) => updateGlossaryDraft("en", event.target.value)} /></label>
+              <label>日本語<input value={glossaryDraft.ja} onChange={(event) => updateGlossaryDraft("ja", event.target.value)} /></label>
+              <label>Domain<input value={glossaryDraft.domain} onChange={(event) => updateGlossaryDraft("domain", event.target.value)} /></label>
+              <div className="glossary-actions">
+                <button type="button" onClick={() => setIsGlossaryOpen(false)}>Close</button>
+                <button type="submit">Save</button>
+              </div>
+              <div className="glossary-list">
+                {userGlossary.map((entry, index) => (
+                  <div className="glossary-row" key={`${entry.zh}-${entry.pinyin}-${index}`}>
+                    <span>{entry.zh}</span><em>{entry.pinyin}</em><button type="button" onClick={() => removeGlossaryEntry(index)}>Remove</button>
+                  </div>
+                ))}
+              </div>
+            </form>
+          </div>
+        )}
       </section>
     </main>
   );
