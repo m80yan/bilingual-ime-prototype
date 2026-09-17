@@ -1,4 +1,5 @@
 import { dict } from "./vendor/web-pinyin-ime/google_pinyin_dict_utf8_55320";
+import { domainGlossarySeedEntries } from "./data/domainGlossarySeed";
 
 const keys = Object.keys(dict);
 const syllableKeys = new Set(keys.filter((key) => key.length <= 6 && dict[key]?.some((item) => item.w.length === 1)));
@@ -126,12 +127,22 @@ function mixedCandidates(input, limit) {
   return unique(matches, limit);
 }
 
+function domainGlossaryCandidates(input, limit) {
+  return unique(
+    domainGlossarySeedEntries
+      .filter((entry) => entry.pinyin === input)
+      .map((entry) => entry.zh),
+    limit,
+  );
+}
+
 export function getPinyinCandidates(value, limit = 25) {
   const spacedInput = value.toLowerCase().trim().replace(/\s+/g, " ");
   const input = value.toLowerCase().replace(/[^a-z]/g, "");
   if (!input) return [];
 
   const shortcut = shortcutCandidates[input] ?? shortcutCandidates[spacedInput.replace(/[^a-z]/g, "")] ?? [];
+  const glossary = domainGlossaryCandidates(input, limit);
   const preferred = preferredSyllableCandidates[input] ?? [];
   const matches = dict[input]
     ? dict[input]
@@ -147,9 +158,9 @@ export function getPinyinCandidates(value, limit = 25) {
   const exact = dict[input] ? direct : [];
   const associated = dict[input] ? associatedPrefixCandidates(input, exact, limit) : [];
   const leading = leadingSyllableCandidates(input, limit);
-  if (dict[input]) return unique([...shortcut, ...preferred, ...mixedCandidates(input, limit), ...exact.slice(0, 1), ...leading, ...exact.slice(1), ...associated], limit);
+  if (dict[input]) return unique([...shortcut, ...glossary, ...preferred, ...mixedCandidates(input, limit), ...exact.slice(0, 1), ...leading, ...exact.slice(1), ...associated], limit);
 
-  return unique([...shortcut, ...preferred, ...mixedCandidates(input, limit), ...leading, ...exact, ...associated, ...direct, ...segmentedCandidates(input, limit)], limit);
+  return unique([...shortcut, ...glossary, ...preferred, ...mixedCandidates(input, limit), ...leading, ...exact, ...associated, ...direct, ...segmentedCandidates(input, limit)], limit);
 }
 
 export function remainingPinyinAfterLeadingCandidate(value, candidate) {

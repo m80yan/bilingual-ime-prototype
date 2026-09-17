@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getPinyinCandidates, remainingPinyinAfterLeadingCandidate } from "./pinyinEngine";
 import cedictTranslations from "./data/cedict-en.json";
+import { domainGlossarySeedEntries } from "./data/domainGlossarySeed";
 
 const localTranslations = {
   "我": { en: "I; me", ja: "私" }, "你": { en: "you", ja: "あなた" }, "他": { en: "he; him", ja: "彼" },
@@ -35,6 +36,14 @@ const PAGE_SIZE = 5;
 const USER_DICTIONARY_KEY = "ime:user-dictionary";
 const USER_GLOSSARY_KEY = "ime:domain-glossary";
 const emptyGlossaryDraft = { zh: "", pinyin: "", en: "", ja: "", domain: "common" };
+const seedGlossaryEntries = domainGlossarySeedEntries.map((entry) => ({
+  zh: entry.zh,
+  pinyin: entry.pinyin,
+  en: entry.en,
+  ja: entry.ja,
+  domain: entry.domain,
+  locked: true,
+}));
 
 function isChineseText(text) {
   return /[\u3400-\u9fff]/.test(text);
@@ -92,9 +101,11 @@ function readUserGlossary() {
   try {
     const saved = window.localStorage.getItem(USER_GLOSSARY_KEY);
     const entries = saved ? JSON.parse(saved) : [];
-    return Array.isArray(entries) ? entries : [];
+    const userEntries = Array.isArray(entries) ? entries : [];
+    const userKeys = new Set(userEntries.map((entry) => `${entry.zh}:${normalizePinyin(entry.pinyin)}`));
+    return [...userEntries, ...seedGlossaryEntries.filter((entry) => !userKeys.has(`${entry.zh}:${normalizePinyin(entry.pinyin)}`))];
   } catch {
-    return [];
+    return seedGlossaryEntries;
   }
 }
 
@@ -645,6 +656,7 @@ export function App() {
       en: glossaryDraft.en.trim(),
       ja: glossaryDraft.ja.trim(),
       domain: glossaryDraft.domain.trim() || "common",
+      locked: false,
     };
     if (!entry.zh || !entry.pinyin) return;
     setUserGlossary((current) => {
@@ -813,7 +825,7 @@ export function App() {
               <div className="glossary-list">
                 {userGlossary.map((entry, index) => (
                   <div className="glossary-row" key={`${entry.zh}-${entry.pinyin}-${index}`}>
-                    <span>{entry.zh}</span><em>{entry.pinyin}</em><button type="button" onClick={() => removeGlossaryEntry(index)}>Remove</button>
+                    <span>{entry.zh}</span><em>{entry.pinyin}</em><button type="button" disabled={entry.locked} onClick={() => removeGlossaryEntry(index)}>{entry.locked ? "Seed" : "Remove"}</button>
                   </div>
                 ))}
               </div>

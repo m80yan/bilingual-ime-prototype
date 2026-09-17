@@ -46,6 +46,7 @@ button { color: inherit; }
 .glossary-panel input { height: 28px; padding: 0 7px; border: 1px solid #aaa; outline-color: #5193fb; font-size: 12px; font-weight: 700; }
 .glossary-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; }
 .glossary-actions button, .glossary-row button { height: 24px; padding: 0 8px; border: 1px solid #aaa; background: #fff; font-size: 12px; font-weight: 700; cursor: pointer; }
+.glossary-row button:disabled { color: #999; cursor: default; }
 .glossary-actions button[type="submit"] { background: rgb(81 147 251 / 25%); }
 .glossary-list { grid-column: 1 / -1; display: grid; gap: 4px; max-height: 120px; overflow-y: auto; }
 .glossary-row { display: grid; grid-template-columns: 1fr 1fr auto; align-items: center; gap: 8px; min-height: 28px; padding: 0 6px; background: #fafafa; font-size: 12px; font-weight: 700; }
