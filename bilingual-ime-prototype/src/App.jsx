@@ -32,6 +32,7 @@ const punctuationMap = {
   "\\": "、",
 };
 const PAGE_SIZE = 5;
+const USER_DICTIONARY_KEY = "ime:user-dictionary";
 
 function isChineseText(text) {
   return /[\u3400-\u9fff]/.test(text);
@@ -66,6 +67,43 @@ function englishCandidate(value, topChineseCandidate) {
   if (properEnglish) return properEnglish;
   if (value.toLowerCase() === "pisa") return "Pizza";
   return value[0].toUpperCase() + value.slice(1);
+}
+
+function readUserDictionary() {
+  try {
+    const saved = window.localStorage.getItem(USER_DICTIONARY_KEY);
+    return saved ? JSON.parse(saved) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeUserDictionary(dictionary) {
+  try {
+    window.localStorage.setItem(USER_DICTIONARY_KEY, JSON.stringify(dictionary));
+  } catch {
+    // Ignore storage failures; typing should keep working.
+  }
+}
+
+function normalizePinyin(value) {
+  return value.toLowerCase().replace(/[^a-z]/g, "");
+}
+
+function rankWithUserDictionary(candidates, pinyin, dictionary) {
+  const learned = dictionary[normalizePinyin(pinyin)] ?? {};
+  return candidates
+    .map((zh, index) => ({ zh, index, learned: learned[zh] }))
+    .sort((left, right) => {
+      const leftCount = left.learned?.count ?? 0;
+      const rightCount = right.learned?.count ?? 0;
+      if (leftCount !== rightCount) return rightCount - leftCount;
+      const leftUsed = left.learned?.lastUsedAt ?? 0;
+      const rightUsed = right.learned?.lastUsedAt ?? 0;
+      if (leftUsed !== rightUsed) return rightUsed - leftUsed;
+      return left.index - right.index;
+    })
+    .map((item) => item.zh);
 }
 
 function ScrambleText({ text, onDone }) {
@@ -116,6 +154,7 @@ export function App() {
   const [draftLines, setDraftLines] = useState([""]);
   const [softBreaks, setSoftBreaks] = useState([false]);
   const [translations, setTranslations] = useState({});
+  const [userDictionary, setUserDictionary] = useState(() => readUserDictionary());
   const [playedTranslations, setPlayedTranslations] = useState({});
   const [loadingSegments, setLoadingSegments] = useState({});
   const [activeLine, setActiveLine] = useState(0);
@@ -145,7 +184,8 @@ export function App() {
   }
 
   const visibleCandidates = useMemo(() => {
-    const chineseCandidates = getPinyinCandidates(query).map((zh) => ({ zh, kind: "zh" }));
+    const rankedCandidates = rankWithUserDictionary(getPinyinCandidates(query), query, userDictionary);
+    const chineseCandidates = rankedCandidates.map((zh) => ({ zh, kind: "zh" }));
     const english = englishCandidate(query, chineseCandidates[0]?.zh);
     const matches = english
       ? [chineseCandidates[0], { zh: english, kind: "en" }, ...chineseCandidates.slice(1)].filter(Boolean)
@@ -155,7 +195,7 @@ export function App() {
       en: candidate.kind === "en" ? "English" : undefined,
       ja: candidate.kind === "en" ? "英語" : undefined,
     }));
-  }, [query, translations]);
+  }, [query, translations, userDictionary]);
   const pageCount = Math.max(1, Math.ceil(visibleCandidates.length / PAGE_SIZE));
   const pagedCandidates = visibleCandidates.slice(candidatePage * PAGE_SIZE, candidatePage * PAGE_SIZE + PAGE_SIZE);
   const selectedCandidate = pagedCandidates[selected];
@@ -321,6 +361,24 @@ export function App() {
   function commit(candidate = pagedCandidates[selected], suffix = "") {
     if (!candidate && !suffix) return;
     const remainingQuery = candidate?.kind !== "en" && !suffix ? remainingPinyinAfterLeadingCandidate(query, candidate.zh) : "";
+    if (candidate?.kind !== "en" && query) {
+      setUserDictionary((current) => {
+        const key = normalizePinyin(query);
+        const existing = current[key]?.[candidate.zh];
+        const next = {
+          ...current,
+          [key]: {
+            ...(current[key] ?? {}),
+            [candidate.zh]: {
+              count: (existing?.count ?? 0) + 1,
+              lastUsedAt: Date.now(),
+            },
+          },
+        };
+        writeUserDictionary(next);
+        return next;
+      });
+    }
     replaceDraftSelection(`${candidate?.zh ?? ""}${suffix}`);
     setQuery(remainingQuery);
     setQueryCursor(remainingQuery.length);
