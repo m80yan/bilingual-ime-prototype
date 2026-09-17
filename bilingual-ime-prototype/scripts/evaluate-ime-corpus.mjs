@@ -1,5 +1,6 @@
 import { domainGlossaryPinyinIndex, domainGlossarySeedEntries, normalizeGlossaryPinyin } from "../src/data/domainGlossarySeed.js";
 import { imeEvaluationCases } from "../src/data/imeEvaluationCases.js";
+import { getPinyinCandidates } from "../src/pinyinEngine.js";
 
 function normalizePinyin(value) {
   return value.toLowerCase().replace(/[^a-z]/g, "");
@@ -33,6 +34,50 @@ for (const testCase of imeEvaluationCases) {
   }
 }
 
+const candidateRankingCases = [
+  {
+    input: "shengbidebaohaijunbowuguan",
+    expectedTop: "圣彼得堡海军博物馆",
+    expectedIncludes: ["圣彼得堡"],
+    forbiddenTopFive: ["Shengbidebaohaijunbowuguan"],
+  },
+  {
+    input: "chuguoliuxuexuanwenkeshangke",
+    expectedTop: "出国留学",
+    expectedIncludes: ["出国"],
+    forbiddenTopFive: ["Chuguoliuxuexuanwenkeshangke"],
+  },
+  {
+    input: "xingqiudazhanjihua",
+    expectedTop: "星球大战计划",
+    expectedIncludes: ["星球"],
+  },
+  {
+    input: "xili",
+    expectedTop: "西历",
+    expectedIncludes: ["西"],
+  },
+];
+
+for (const testCase of candidateRankingCases) {
+  const candidates = getPinyinCandidates(testCase.input, 10);
+  if (candidates[0] !== testCase.expectedTop) {
+    failures.push(`${testCase.input}: expected top candidate ${testCase.expectedTop}, got ${candidates[0]}`);
+  }
+
+  for (const expected of testCase.expectedIncludes ?? []) {
+    if (!candidates.includes(expected)) {
+      failures.push(`${testCase.input}: expected candidates to include ${expected}`);
+    }
+  }
+
+  for (const forbidden of testCase.forbiddenTopFive ?? []) {
+    if (candidates.slice(0, 5).includes(forbidden)) {
+      failures.push(`${testCase.input}: should not waste top slots with ${forbidden}`);
+    }
+  }
+}
+
 const duplicateKeys = domainGlossarySeedEntries
   .map((entry) => `${entry.zh}:${normalizePinyin(entry.pinyin)}`)
   .filter((key, index, keys) => keys.indexOf(key) !== index);
@@ -45,4 +90,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`IME corpus check passed: ${imeEvaluationCases.length} evaluation cases, ${domainGlossarySeedEntries.length} seed entries.`);
+console.log(`IME corpus check passed: ${imeEvaluationCases.length} glossary cases, ${candidateRankingCases.length} ranking cases, ${domainGlossarySeedEntries.length} seed entries.`);
