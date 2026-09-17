@@ -91,8 +91,17 @@ export default async function handler(request, response) {
     "Relevant domains include UI/UX design, product design, design systems, interaction design, visual design, cars, phones/devices, movies, history, daily life, and English learning.",
     "When translating to English, output English punctuation, avoid Chinese punctuation, preserve standard product spacing such as Mate 70 Pro, and do not repeat the same sentence.",
     mode === "final"
-      ? "For completed English sentences, make the subject explicit when Chinese omits it, choose natural domain wording such as major in arts or business, use a decade later for 十年后 when natural, and keep rhetorical or emotional force."
+      ? "For completed English sentences, make omitted subjects explicit when needed, choose idiomatic domain wording over literal noun chains, use natural time expressions, and keep rhetorical or emotional force."
       : "For candidate words or unfinished fragments, keep the output short and literal enough to help selection.",
+    mode === "final" && targetLanguage === "en"
+      ? "If the source is a short rhetorical question or headline, produce a concise headline-style question, not a full explanatory sentence. Prefer US or America over the United States in headlines when natural."
+      : "",
+    mode === "final" && targetLanguage === "en"
+      ? "For domain concepts with established English usage, use the established English term or a natural quoted calque instead of a literal dictionary phrase. If the Chinese wording names an idea, policy, school, genre, or trend, it is acceptable to keep it compact in quotes."
+      : "",
+    mode === "final" && targetLanguage === "en"
+      ? "Translate Chinese idioms and evaluative phrases by function: use natural English constructions such as a dead end, lead nowhere, doomed to fail, a scam, a trap, or a bubble when they match the tone, instead of preserving the original syntax."
+      : "",
     context ? `Use this surrounding Chinese context when it helps: ${context}` : "",
     `Use these matched glossary entries when relevant: ${JSON.stringify(relevantGlossary)}`,
     "Return only a JSON object whose keys are the original Chinese strings and values are their translations.",
