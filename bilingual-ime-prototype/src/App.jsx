@@ -83,6 +83,7 @@ function englishCandidate(value, topChineseCandidate) {
   const properEnglish = topChineseCandidate ? properEnglishCandidate(topChineseCandidate) : "";
   if (properEnglish) return properEnglish;
   if (value.toLowerCase() === "pisa") return "Pizza";
+  if (value !== value.toLowerCase()) return value;
   return value[0].toUpperCase() + value.slice(1);
 }
 
@@ -632,7 +633,7 @@ export function App() {
     }
     else if (/^[a-z]$/i.test(event.key) && !event.metaKey && !event.ctrlKey && !event.altKey) {
       event.preventDefault();
-      const letter = event.key.toLowerCase();
+      const letter = event.key;
       setQuery((current) => `${current.slice(0, queryCursor)}${letter}${current.slice(queryCursor)}`);
       setQueryCursor((current) => current + 1);
     }
@@ -641,7 +642,7 @@ export function App() {
   function handleDraftChange(event, lineIndex) {
     setAllChineseSelected(false);
     const next = event.target.value;
-    const pinyin = next.match(/[a-z]+/gi)?.join("").toLowerCase() ?? "";
+    const pinyin = next.match(/[a-z]+/gi)?.join("") ?? "";
     if (query && next.includes("=") && candidatePage < pageCount - 1) {
       setCandidatePage((current) => Math.min(pageCount - 1, current + 1));
       setSelected(0);
