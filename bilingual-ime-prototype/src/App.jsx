@@ -31,7 +31,7 @@ const punctuationMap = {
   "/": "、",
   "\\": "、",
 };
-const PAGE_SIZE = 7;
+const PAGE_SIZE = 5;
 
 function isChineseText(text) {
   return /[\u3400-\u9fff]/.test(text);
@@ -124,8 +124,6 @@ export function App() {
   const [secondaryLanguage, setSecondaryLanguage] = useState("en");
   const [isSecondaryMenuOpen, setIsSecondaryMenuOpen] = useState(false);
   const [candidatePosition, setCandidatePosition] = useState({ left: 0, top: 0 });
-  const [compositionPosition, setCompositionPosition] = useState({ left: 0, top: 0 });
-  const [caretPosition, setCaretPosition] = useState({ left: 0, top: 0 });
   const [isEditorFocused, setIsEditorFocused] = useState(false);
   const [allChineseSelected, setAllChineseSelected] = useState(false);
   const editorRef = useRef(null);
@@ -154,12 +152,13 @@ export function App() {
       : chineseCandidates;
     return matches.map((candidate) => ({
       ...candidate,
-      en: candidate.kind === "en" ? "English" : translationFor(candidate.zh, "en"),
-      ja: candidate.kind === "en" ? "英語" : translationFor(candidate.zh, "ja"),
+      en: candidate.kind === "en" ? "English" : undefined,
+      ja: candidate.kind === "en" ? "英語" : undefined,
     }));
   }, [query, translations]);
   const pageCount = Math.max(1, Math.ceil(visibleCandidates.length / PAGE_SIZE));
   const pagedCandidates = visibleCandidates.slice(candidatePage * PAGE_SIZE, candidatePage * PAGE_SIZE + PAGE_SIZE);
+  const selectedCandidate = pagedCandidates[selected];
   const footerLanguageLabel = secondaryLanguage === "ja" ? "Japanese" : "English";
 
   useEffect(() => { setSelected(0); setCandidatePage(0); }, [query]);
@@ -193,7 +192,8 @@ export function App() {
       .forEach((segment) => { segmentKeys[`removed:${segment}`] = false; });
     previousDraftLines.current = draftLines;
     setLoadingSegments(segmentKeys);
-    const pending = [...new Set([...getPinyinCandidates(query), ...filledSegments].filter(Boolean))]
+    const selectedCandidateText = query && selectedCandidate?.kind !== "en" ? selectedCandidate?.zh : null;
+    const pending = [...new Set([selectedCandidateText, ...filledSegments].filter(Boolean))]
       .filter((zh) => !localTranslations[zh]?.[secondaryLanguage]
         && !(splitFinalPunctuation(zh).body !== zh && translationFor(splitFinalPunctuation(zh).body, secondaryLanguage) !== (secondaryLanguage === "en" ? "…" : "翻訳中…"))
         && !(secondaryLanguage === "en" && cedictTranslations[zh]?.length)
@@ -228,7 +228,7 @@ export function App() {
     }, 300);
 
     return () => { window.clearTimeout(debounce); controller.abort(); };
-  }, [query, draftLines, secondaryLanguage]);
+  }, [query, selectedCandidate?.zh, selectedCandidate?.kind, draftLines, secondaryLanguage]);
 
   useEffect(() => {
     function resize(event) {
@@ -303,19 +303,9 @@ export function App() {
 
     const markerRect = marker.getBoundingClientRect();
     const editorRect = editor.getBoundingClientRect();
-    const left = markerRect.right - editorRect.left + editor.scrollLeft;
-    const compositionTop = markerRect.top - editorRect.top;
     const candidateTop = markerRect.bottom + 18;
 
     document.body.removeChild(mirror);
-    setCompositionPosition({
-      left,
-      top: Math.max(0, compositionTop),
-    });
-    setCaretPosition({
-      left,
-      top: Math.max(0, compositionTop),
-    });
     setCandidatePosition({
       left: markerRect.right,
       top: Math.max(0, candidateTop),
@@ -421,7 +411,7 @@ export function App() {
         updateCandidatePosition();
       });
     }
-    else if (/^[1-7]$/.test(event.key) && pagedCandidates[Number(event.key) - 1]) { event.preventDefault(); commit(pagedCandidates[Number(event.key) - 1]); }
+    else if (/^[1-5]$/.test(event.key) && pagedCandidates[Number(event.key) - 1]) { event.preventDefault(); commit(pagedCandidates[Number(event.key) - 1]); }
     else if (punctuationMap[event.key]) { event.preventDefault(); commit(query ? pagedCandidates[selected] : null, punctuationMap[event.key]); }
     else if (event.key === "Backspace" && query) {
       event.preventDefault();
@@ -624,25 +614,33 @@ export function App() {
                       autoComplete="off"
                       spellCheck="false"
                     />
-                    {isEditorFocused && activeLine === index && !query && !allChineseSelected && <span className="custom-caret" style={caretPosition} />}
-                    {query && activeLine === index && (
-                      <span className="pinyin-composition" style={compositionPosition}>
-                        {query.slice(0, queryCursor)}
-                        <span className="pinyin-caret" />
-                        {query.slice(queryCursor)}
-                      </span>
-                    )}
                     {line && <span className="secondary-line">{renderSecondarySegments(line, index)}</span>}
                   </p>
                 );
               })}
             </div>
-            <div className="candidate-picker" style={query ? candidatePosition : undefined} role="listbox" aria-label="双语候选">
-              {pagedCandidates.map((candidate, index) => {
-                const pair = translationPair(candidate);
-                return <button key={`${candidate.zh}-${index}`} className={selected === index ? "candidate selected" : "candidate"} role="option" aria-selected={selected === index} onMouseEnter={() => setSelected(index)} onClick={() => commit(candidate)}><b>{index + 1}.</b><span><strong>{pair.primary}</strong><em>{pair.secondary}</em></span></button>;
-              })}
-            </div>
+            {query && (
+              <div className="candidate-picker" style={candidatePosition} role="listbox" aria-label="双语候选">
+                <div className="candidate-composition">
+                  <span>{query.slice(0, queryCursor)}</span><span className="pinyin-caret" /><span>{query.slice(queryCursor)}</span>
+                </div>
+                <div className="candidate-options">
+                  {pagedCandidates.map((candidate, index) => {
+                    const pair = translationPair(candidate);
+                    return <button key={`${candidate.zh}-${index}`} className={selected === index ? "candidate selected" : "candidate"} role="option" aria-selected={selected === index} onMouseEnter={() => setSelected(index)} onClick={() => commit(candidate)}><b>{index + 1}.</b><strong>{pair.primary}</strong></button>;
+                  })}
+                </div>
+                <div className="candidate-translation">
+                  {selectedCandidate ? translationPair(selectedCandidate).secondary : ""}
+                </div>
+                {pageCount > 1 && (
+                  <div className="candidate-page-controls" aria-label="候选翻页">
+                    <button className="candidate-page-button" type="button" aria-label="上一页" disabled={pageCount <= 1} onClick={() => { setCandidatePage((current) => (current - 1 + pageCount) % pageCount); setSelected(0); }}><span className="page-arrow up" /></button>
+                    <button className="candidate-page-button" type="button" aria-label="下一页" disabled={pageCount <= 1} onClick={() => { setCandidatePage((current) => (current + 1) % pageCount); setSelected(0); }}><span className="page-arrow down" /></button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </section>
         <footer className="ime-footer"><span>{`Smart ${footerLanguageLabel} output as you write Chinese`}</span><button className={resizing ? "resize-handle active" : "resize-handle"} onPointerDown={startResize} aria-label="Drag to resize window"><span className="resize-grip" aria-hidden="true">{[1, 2, 3].map((count) => <span className="resize-grip-row" key={count}>{Array.from({ length: count }, (_, index) => <img key={index} src={resizing ? "/assets/figma-drag-handle-pressed.svg" : "/assets/figma-drag-handle-default.svg"} alt="" />)}</span>)}</span></button></footer>
