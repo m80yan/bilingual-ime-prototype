@@ -286,9 +286,10 @@ export function App() {
       context,
     );
     const chineseCandidates = rankedCandidates.map((zh) => ({ zh, kind: "zh" }));
-    const english = englishCandidate(query, chineseCandidates[0]?.zh);
-    const englishItem = english ? { zh: english, kind: "en" } : null;
     const shouldPrioritizeEnglish = /[A-Z]/.test(query);
+    const shouldOfferFallbackEnglish = shouldPrioritizeEnglish || !chineseCandidates.length || query.length <= 12;
+    const english = shouldOfferFallbackEnglish ? englishCandidate(query, chineseCandidates[0]?.zh) : properEnglishCandidate(chineseCandidates[0]?.zh);
+    const englishItem = english ? { zh: english, kind: "en" } : null;
     const matches = english
       ? shouldPrioritizeEnglish
         ? [englishItem, ...chineseCandidates].filter(Boolean)

@@ -71,12 +71,13 @@ function segmentedCandidates(input, limit) {
 
 function composedLongCandidates(input, limit) {
   const paths = [];
+  const stablePrefixes = [];
 
   for (let end = input.length - 1; end >= 2; end -= 1) {
     const prefix = input.slice(0, end);
     const rest = input.slice(end);
     const glossaryEntries = domainGlossaryPinyinIndex[normalizeGlossaryPinyin(prefix)] ?? [];
-    const dictEntries = dict[prefix] ?? [];
+    const dictEntries = splitIntoSyllables(prefix).length <= 5 ? dict[prefix] ?? [] : [];
     if (!glossaryEntries.length && !dictEntries.length) continue;
 
     const prefixEntries = [
@@ -85,10 +86,13 @@ function composedLongCandidates(input, limit) {
         .filter((entry) => entry.w.length > 1)
         .slice()
         .sort((left, right) => right.f - left.f)
-        .slice(0, 3)
+        .slice(0, 2)
         .map((entry) => ({ text: entry.w, score: Math.log(entry.f + 1) + entry.w.length * 10 })),
     ];
     if (!prefixEntries.length) continue;
+    prefixEntries.forEach((prefixEntry) => {
+      stablePrefixes.push({ text: prefixEntry.text, score: prefixEntry.score + prefix.length });
+    });
 
     const tailCandidates = segmentedCandidates(rest, 6);
     if (!tailCandidates.length) continue;
@@ -103,10 +107,15 @@ function composedLongCandidates(input, limit) {
     });
   }
 
-  return [...new Map(paths.map((path) => [path.text, path])).values()]
+  const composed = [...new Map(paths.map((path) => [path.text, path])).values()]
     .sort((left, right) => right.score - left.score)
     .map((path) => path.text)
     .slice(0, limit);
+  const prefixes = [...new Map(stablePrefixes.map((path) => [path.text, path])).values()]
+    .sort((left, right) => right.score - left.score)
+    .map((path) => path.text)
+    .slice(0, Math.max(0, limit - composed.length));
+  return unique([...composed.slice(0, 1), ...prefixes, ...composed.slice(1)], limit);
 }
 
 function splitIntoSyllables(input) {
