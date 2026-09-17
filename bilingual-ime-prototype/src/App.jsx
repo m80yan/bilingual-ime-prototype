@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { getPinyinCandidates } from "./pinyinEngine";
+import { getPinyinCandidates, remainingPinyinAfterLeadingCandidate } from "./pinyinEngine";
 import cedictTranslations from "./data/cedict-en.json";
 
 const localTranslations = {
@@ -320,9 +320,10 @@ export function App() {
 
   function commit(candidate = pagedCandidates[selected], suffix = "") {
     if (!candidate && !suffix) return;
+    const remainingQuery = candidate?.kind !== "en" && !suffix ? remainingPinyinAfterLeadingCandidate(query, candidate.zh) : "";
     replaceDraftSelection(`${candidate?.zh ?? ""}${suffix}`);
-    setQuery("");
-    setQueryCursor(0);
+    setQuery(remainingQuery);
+    setQueryCursor(remainingQuery.length);
   }
 
   function handleKeyDown(event) {

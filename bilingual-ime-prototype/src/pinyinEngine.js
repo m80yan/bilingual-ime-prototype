@@ -7,6 +7,10 @@ const shortcutCandidates = {
   jintwoxiangshuoyijianshi: ["今天我想说一件事"],
   jtwxsyjs: ["今天我想说一件事"],
 };
+const preferredSyllableCandidates = {
+  xi: ["西"],
+  li: ["历"],
+};
 
 function unique(items, limit) {
   return [...new Set(items.filter(Boolean))].slice(0, limit);
@@ -22,6 +26,18 @@ function associatedPrefixCandidates(input, exactCandidates, limit) {
   }
 
   return unique(suggestions, limit);
+}
+
+function leadingSyllableCandidates(input, limit) {
+  const syllables = splitIntoSyllables(input);
+  if (syllables.length !== 2) return [];
+  return unique(
+    [...(preferredSyllableCandidates[syllables[0]] ?? []), ...(dict[syllables[0]] ?? [])
+      .slice()
+      .sort((left, right) => right.f - left.f)
+      .map((item) => item.w)],
+    limit,
+  );
 }
 
 function segmentedCandidates(input, limit) {
@@ -116,6 +132,7 @@ export function getPinyinCandidates(value, limit = 25) {
   if (!input) return [];
 
   const shortcut = shortcutCandidates[input] ?? shortcutCandidates[spacedInput.replace(/[^a-z]/g, "")] ?? [];
+  const preferred = preferredSyllableCandidates[input] ?? [];
   const matches = dict[input]
     ? dict[input]
     : keys.filter((key) => key.startsWith(input)).flatMap((key) => dict[key]);
@@ -129,7 +146,16 @@ export function getPinyinCandidates(value, limit = 25) {
   );
   const exact = dict[input] ? direct : [];
   const associated = dict[input] ? associatedPrefixCandidates(input, exact, limit) : [];
-  if (dict[input]) return unique([...shortcut, ...mixedCandidates(input, limit), ...exact, ...associated], limit);
+  const leading = leadingSyllableCandidates(input, limit);
+  if (dict[input]) return unique([...shortcut, ...preferred, ...mixedCandidates(input, limit), ...exact.slice(0, 1), ...leading, ...exact.slice(1), ...associated], limit);
 
-  return unique([...shortcut, ...mixedCandidates(input, limit), ...exact, ...associated, ...direct, ...segmentedCandidates(input, limit)], limit);
+  return unique([...shortcut, ...preferred, ...mixedCandidates(input, limit), ...leading, ...exact, ...associated, ...direct, ...segmentedCandidates(input, limit)], limit);
+}
+
+export function remainingPinyinAfterLeadingCandidate(value, candidate) {
+  const input = value.toLowerCase().replace(/[^a-z]/g, "");
+  const syllables = splitIntoSyllables(input);
+  if (syllables.length !== 2 || candidate.length !== 1) return "";
+  if (!leadingSyllableCandidates(input, 25).includes(candidate)) return "";
+  return syllables.slice(1).join("");
 }
