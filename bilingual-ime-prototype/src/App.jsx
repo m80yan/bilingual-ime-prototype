@@ -66,6 +66,10 @@ function splitFinalPunctuation(text) {
   return match ? { body: match[1], punctuation: match[2] } : { body: text, punctuation: "" };
 }
 
+function shouldTrimSpaceBeforeChinesePunctuation(beforeCaret, text) {
+  return /^[，。？！；：、]/.test(text) && /[A-Za-z0-9] $/.test(beforeCaret);
+}
+
 function targetPunctuation(mark, language) {
   if (!mark) return "";
   if (language === "ja") return mark === "？" || mark === "?" ? "？" : mark === "！" || mark === "!" ? "！" : "。";
@@ -417,11 +421,13 @@ export function App() {
     const currentLine = draftLines[activeLine] ?? "";
     const start = editor?.selectionStart ?? currentLine.length;
     const end = editor?.selectionEnd ?? start;
-    const next = `${currentLine.slice(0, start)}${text}${currentLine.slice(end)}`;
+    const trimPreviousSpace = shouldTrimSpaceBeforeChinesePunctuation(currentLine.slice(0, start), text);
+    const insertStart = trimPreviousSpace ? start - 1 : start;
+    const next = `${currentLine.slice(0, insertStart)}${text}${currentLine.slice(end)}`;
     setDraftLines((current) => current.map((line, index) => (index === activeLine ? next : line)));
     requestAnimationFrame(() => {
       inputRefs.current[activeLine]?.focus();
-      inputRefs.current[activeLine]?.setSelectionRange(start + text.length, start + text.length);
+      inputRefs.current[activeLine]?.setSelectionRange(insertStart + text.length, insertStart + text.length);
     });
   }
 
