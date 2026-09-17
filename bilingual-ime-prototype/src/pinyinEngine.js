@@ -69,6 +69,46 @@ function segmentedCandidates(input, limit) {
   return bestFrom(0).map((path) => path.text).filter(Boolean).slice(0, limit);
 }
 
+function composedLongCandidates(input, limit) {
+  const paths = [];
+
+  for (let end = input.length - 1; end >= 2; end -= 1) {
+    const prefix = input.slice(0, end);
+    const rest = input.slice(end);
+    const glossaryEntries = domainGlossaryPinyinIndex[normalizeGlossaryPinyin(prefix)] ?? [];
+    const dictEntries = dict[prefix] ?? [];
+    if (!glossaryEntries.length && !dictEntries.length) continue;
+
+    const prefixEntries = [
+      ...glossaryEntries.map((entry) => ({ text: entry.zh, score: 100000 + entry.zh.length * 100 })),
+      ...dictEntries
+        .filter((entry) => entry.w.length > 1)
+        .slice()
+        .sort((left, right) => right.f - left.f)
+        .slice(0, 3)
+        .map((entry) => ({ text: entry.w, score: Math.log(entry.f + 1) + entry.w.length * 10 })),
+    ];
+    if (!prefixEntries.length) continue;
+
+    const tailCandidates = segmentedCandidates(rest, 6);
+    if (!tailCandidates.length) continue;
+
+    prefixEntries.forEach((prefixEntry) => {
+      tailCandidates.forEach((tail, tailIndex) => {
+        paths.push({
+          text: `${prefixEntry.text}${tail}`,
+          score: prefixEntry.score + input.length + prefix.length - tailIndex,
+        });
+      });
+    });
+  }
+
+  return [...new Map(paths.map((path) => [path.text, path])).values()]
+    .sort((left, right) => right.score - left.score)
+    .map((path) => path.text)
+    .slice(0, limit);
+}
+
 function splitIntoSyllables(input) {
   const memo = new Map();
 
@@ -159,7 +199,7 @@ export function getPinyinCandidates(value, limit = 25) {
   const leading = leadingSyllableCandidates(input, limit);
   if (dict[input]) return unique([...shortcut, ...glossary, ...preferred, ...mixedCandidates(input, limit), ...exact.slice(0, 1), ...leading, ...exact.slice(1), ...associated], limit);
 
-  return unique([...shortcut, ...glossary, ...preferred, ...mixedCandidates(input, limit), ...leading, ...exact, ...associated, ...direct, ...segmentedCandidates(input, limit)], limit);
+  return unique([...shortcut, ...glossary, ...preferred, ...mixedCandidates(input, limit), ...composedLongCandidates(input, limit), ...leading, ...exact, ...associated, ...direct, ...segmentedCandidates(input, limit)], limit);
 }
 
 export function remainingPinyinAfterLeadingCandidate(value, candidate) {
