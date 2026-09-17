@@ -173,27 +173,33 @@ export function App() {
 
   useEffect(() => {
     const filledSegments = draftLines.flatMap(splitChineseSegments).filter(isChineseText);
-    if (!filledSegments.length) {
+    const selectedCandidateText = query && selectedCandidate?.kind !== "en" ? selectedCandidate?.zh : null;
+    if (!filledSegments.length && !selectedCandidateText) {
       setLoadingSegments({});
       return undefined;
     }
 
-    const previousSegments = previousDraftLines.current.flatMap(splitChineseSegments);
-    const previousBodies = previousSegments.map((segment) => splitFinalPunctuation(segment).body);
-    const segmentKeys = {};
-    draftLines.forEach((line, lineIndex) => {
-      splitChineseSegments(line).forEach((segment) => {
-        const body = splitFinalPunctuation(segment).body;
-        segmentKeys[segment] = isChineseText(segment) && !previousSegments.includes(segment) && !previousBodies.includes(body);
+    if (query) {
+      setLoadingSegments({});
+    } else {
+      const previousSegments = previousDraftLines.current.flatMap(splitChineseSegments);
+      const previousBodies = previousSegments.map((segment) => splitFinalPunctuation(segment).body);
+      const segmentKeys = {};
+      draftLines.forEach((line, lineIndex) => {
+        splitChineseSegments(line).forEach((segment) => {
+          const body = splitFinalPunctuation(segment).body;
+          segmentKeys[segment] = isChineseText(segment) && !previousSegments.includes(segment) && !previousBodies.includes(body);
+        });
       });
-    });
-    previousSegments
-      .filter((segment) => !filledSegments.includes(segment))
-      .forEach((segment) => { segmentKeys[`removed:${segment}`] = false; });
-    previousDraftLines.current = draftLines;
-    setLoadingSegments(segmentKeys);
-    const selectedCandidateText = query && selectedCandidate?.kind !== "en" ? selectedCandidate?.zh : null;
-    const pending = [...new Set([selectedCandidateText, ...filledSegments].filter(Boolean))]
+      previousSegments
+        .filter((segment) => !filledSegments.includes(segment))
+        .forEach((segment) => { segmentKeys[`removed:${segment}`] = false; });
+      previousDraftLines.current = draftLines;
+      setLoadingSegments(segmentKeys);
+    }
+
+    const pendingSource = query ? [selectedCandidateText] : filledSegments;
+    const pending = [...new Set(pendingSource.filter(Boolean))]
       .filter((zh) => !localTranslations[zh]?.[secondaryLanguage]
         && !(splitFinalPunctuation(zh).body !== zh && translationFor(splitFinalPunctuation(zh).body, secondaryLanguage) !== (secondaryLanguage === "en" ? "…" : "翻訳中…"))
         && !(secondaryLanguage === "en" && cedictTranslations[zh]?.length)
