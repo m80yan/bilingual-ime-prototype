@@ -65,6 +65,8 @@ export default async function handler(request, response) {
   }
 
   const targetLanguage = body.targetLanguage;
+  const mode = body.mode === "final" ? "final" : "draft";
+  const context = typeof body.context === "string" ? body.context.slice(0, 600) : "";
   const texts = [...new Set(Array.isArray(body.texts) ? body.texts : [])]
     .filter((text) => typeof text === "string" && text.length > 0 && text.length <= 80)
     .slice(0, 5);
@@ -82,10 +84,16 @@ export default async function handler(request, response) {
   const relevantGlossary = getRelevantGlossary(remoteTexts, targetLanguage);
   const prompt = [
     `Translate every Simplified Chinese item into ${supportedLanguages[targetLanguage]}.`,
-    "Use concise, natural wording for a bilingual writing/IME demo. Do not translate word-for-word when a native phrase is better.",
+    mode === "final"
+      ? "These are completed sentences. Rewrite them as natural, context-aware output. Preserve the meaning and tone; do not translate word-for-word when a native phrase is better."
+      : "Use concise, natural wording for a bilingual writing/IME demo. Do not translate word-for-word when a native phrase is better.",
     "Prefer everyday American English for English output. Keep professional UI/UX and product-design terms precise when the sentence is about design.",
     "Relevant domains include UI/UX design, product design, design systems, interaction design, visual design, cars, phones/devices, movies, history, daily life, and English learning.",
     "When translating to English, output English punctuation, avoid Chinese punctuation, preserve standard product spacing such as Mate 70 Pro, and do not repeat the same sentence.",
+    mode === "final"
+      ? "For completed English sentences, make the subject explicit when Chinese omits it, choose natural domain wording such as major in arts or business, use a decade later for 十年后 when natural, and keep rhetorical or emotional force."
+      : "For candidate words or unfinished fragments, keep the output short and literal enough to help selection.",
+    context ? `Use this surrounding Chinese context when it helps: ${context}` : "",
     `Use these matched glossary entries when relevant: ${JSON.stringify(relevantGlossary)}`,
     "Return only a JSON object whose keys are the original Chinese strings and values are their translations.",
     JSON.stringify(remoteTexts),

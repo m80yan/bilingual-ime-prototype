@@ -76,6 +76,10 @@ function targetPunctuation(mark, language) {
   return mark === "？" || mark === "?" ? "?" : mark === "！" || mark === "!" ? "!" : ".";
 }
 
+function isFinalTranslationSegment(text) {
+  return /[。！？!?]$/.test(text);
+}
+
 function properEnglishCandidate(zh) {
   const firstDefinition = cedictTranslations[zh]?.[0];
   const match = firstDefinition?.match(/^([A-Z][A-Za-z.'-]*(?: [A-Za-z.'-]+){0,8})(?:\s*\(|,|$)/);
@@ -269,7 +273,8 @@ export function App() {
       return `${baseTranslation.replace(/[.!?。！？]$/, "")}${targetPunctuation(punctuation, language)}`;
     }
 
-    return translations[`${language}:${zh}`]
+    return translations[`final:${language}:${zh}`]
+      ?? translations[`${language}:${zh}`]
       ?? userGlossaryTranslation(zh, language, userGlossary)
       ?? localTranslations[zh]?.[language]
       ?? (language === "en" && cedictTranslations[zh]?.length ? cedictTranslations[zh].join("; ") : null)
@@ -344,14 +349,21 @@ export function App() {
     }
 
     const pendingSource = query ? [selectedCandidateText] : filledSegments;
-    const pending = [...new Set(pendingSource.filter(Boolean))]
+    const pendingDraft = [...new Set(pendingSource.filter(Boolean))]
+      .filter((zh) => query || !isFinalTranslationSegment(zh))
       .filter((zh) => !localTranslations[zh]?.[secondaryLanguage]
         && !(splitFinalPunctuation(zh).body !== zh && translationFor(splitFinalPunctuation(zh).body, secondaryLanguage) !== (secondaryLanguage === "en" ? "…" : "翻訳中…"))
         && !userGlossaryTranslation(zh, secondaryLanguage, userGlossary)
         && !(secondaryLanguage === "en" && cedictTranslations[zh]?.length)
         && !translations[`${secondaryLanguage}:${zh}`]);
+    const pendingFinal = query ? [] : [...new Set(filledSegments.filter(isFinalTranslationSegment))]
+      .filter((zh) => !translations[`final:${secondaryLanguage}:${zh}`]);
+    const requests = [
+      { mode: "draft", texts: pendingDraft },
+      { mode: "final", texts: pendingFinal },
+    ].filter((request) => request.texts.length);
 
-    if (!pending.length) {
+    if (!requests.length) {
       const settle = window.setTimeout(() => setLoadingSegments({}), 360);
       return () => window.clearTimeout(settle);
     }
@@ -359,19 +371,31 @@ export function App() {
     const controller = new AbortController();
     const debounce = window.setTimeout(async () => {
       try {
-        const response = await fetch("/api/translate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ texts: pending, targetLanguage: secondaryLanguage }),
-          signal: controller.signal,
-        });
-        if (!response.ok) return;
-        const { translations: results } = await response.json();
-        if (!results) return;
-        setTranslations((current) => ({
-          ...current,
-          ...Object.fromEntries(Object.entries(results).map(([zh, translation]) => [`${secondaryLanguage}:${zh}`, translation])),
+        const resultsByMode = await Promise.all(requests.map(async (request) => {
+          const response = await fetch("/api/translate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              texts: request.texts,
+              targetLanguage: secondaryLanguage,
+              mode: request.mode,
+              context: draftLines.join("\n"),
+            }),
+            signal: controller.signal,
+          });
+          if (!response.ok) return null;
+          const { translations: results } = await response.json();
+          return results ? { mode: request.mode, results } : null;
         }));
+        const entries = resultsByMode
+          .filter(Boolean)
+          .flatMap(({ mode, results }) => Object.entries(results).map(([zh, translation]) => [
+            mode === "final" ? `final:${secondaryLanguage}:${zh}` : `${secondaryLanguage}:${zh}`,
+            translation,
+          ]));
+        if (entries.length) {
+          setTranslations((current) => ({ ...current, ...Object.fromEntries(entries) }));
+        }
       } catch (error) {
         if (error.name !== "AbortError") console.warn("Translation service is unavailable.");
       } finally {
