@@ -601,6 +601,20 @@ export function App() {
     });
   }
 
+  function focusEditorFromWritingArea(event) {
+    if (event.target.closest("textarea, input, button, select, .candidate-picker, .glossary-overlay")) return;
+    const targetLine = inputRefs.current[activeLine] ? activeLine : Math.max(0, draftLines.length - 1);
+    const target = inputRefs.current[targetLine];
+    if (!target) return;
+    setAllChineseSelected(false);
+    setActiveLine(targetLine);
+    requestAnimationFrame(() => {
+      target.focus();
+      target.setSelectionRange(target.value.length, target.value.length);
+      updateCandidatePosition();
+    });
+  }
+
   function commit(candidate = pagedCandidates[selected], suffix = "") {
     if (!candidate && !suffix) return;
     const remainingQuery = candidate?.kind !== "en" && !suffix ? remainingPinyinAfterLeadingCandidate(query, candidate.zh) : "";
@@ -1111,7 +1125,7 @@ export function App() {
             {translationStyleCombo()}
           </div>
         </header>
-        <section className="writing-area">
+        <section className="writing-area" onPointerDown={focusEditorFromWritingArea}>
           <div className="composition-editor" ref={editorRef}>
             <div className="written-lines" aria-live="polite" onScroll={updateCandidatePosition}>
               {draftLines.map((line, index) => {

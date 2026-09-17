@@ -15,7 +15,7 @@ button { color: inherit; }
 .language-list { position: absolute; top: 31px; left: 0; width: 144px; overflow: hidden; border: 1px solid #aaa; background: #fff; box-shadow: 0 5px 12px rgb(0 0 0 / 20%); }
 .language-option { display: grid; grid-template-columns: 20px 1fr; align-items: center; width: 100%; height: 28px; padding: 0 8px; border: 0; background: #fff; color: #000; font-size: 12px; font-weight: 700; text-align: left; cursor: pointer; }.language-option:hover { background: rgb(81 147 251 / 12%); }.language-option.selected { background: rgb(81 147 251 / 25%); }.language-option img { width: 14px; height: 11px; }.check-space { width: 14px; height: 11px; }
 .field-label { color: #777; font-size: 12px; font-weight: 700; line-height: 28px; white-space: nowrap; }
-.writing-area { position: relative; min-height: 0; overflow: hidden; background: #fff; }
+.writing-area { position: relative; min-height: 0; overflow: hidden; background: #fff; cursor: text; }
 .composition-editor { position: absolute; inset: 22px 0 0 15px; display: flex; flex-direction: column; align-items: stretch; min-height: 0; overflow: hidden; padding: 0 0 16px; }
 .written-lines { display: grid; align-content: start; grid-auto-rows: max-content; gap: 28px; height: 100%; overflow-y: auto; padding-right: 15px; scrollbar-color: #aaa transparent; scrollbar-width: thin; }
 .written-lines::-webkit-scrollbar { width: 8px; }.written-lines::-webkit-scrollbar-track { background: transparent; }.written-lines::-webkit-scrollbar-thumb { border-radius: 0 !important; background: #aaa; }.written-lines::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
