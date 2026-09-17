@@ -4,6 +4,12 @@ const supportedLanguages = {
   en: "natural English",
   ja: "natural Japanese",
 };
+const translationStyleInstructions = {
+  daily: "Style: daily. Use natural everyday wording that sounds like a fluent person writing normally.",
+  formal: "Style: formal. Use polished written language, avoid slang and contractions, and keep the tone suitable for work email or documentation.",
+  social: "Style: social media. Use concise, expressive, lively wording. Keep rhetorical force and emotional color; short punchy phrasing is preferred.",
+  technical: "Style: technical documentation. Prioritize terminology accuracy, clear structure, concise sentences, and unambiguous wording.",
+};
 
 function readOutputText(data) {
   if (typeof data.output_text === "string") return data.output_text;
@@ -86,6 +92,7 @@ export default async function handler(request, response) {
 
   const targetLanguage = body.targetLanguage;
   const mode = body.mode === "final" ? "final" : "draft";
+  const style = translationStyleInstructions[body.style] ? body.style : "daily";
   const context = typeof body.context === "string" ? body.context.slice(0, 600) : "";
   const texts = [...new Set(Array.isArray(body.texts) ? body.texts : [])]
     .filter((text) => typeof text === "string" && text.length > 0 && text.length <= 80)
@@ -112,6 +119,7 @@ export default async function handler(request, response) {
     mode === "final"
       ? "These are completed sentences. Rewrite them as natural, context-aware output. Preserve the meaning and tone; do not translate word-for-word when a native phrase is better."
       : "Use concise, natural wording for a bilingual writing/IME demo. Do not translate word-for-word when a native phrase is better.",
+    translationStyleInstructions[style],
     "Prefer everyday American English for English output. Keep professional UI/UX and product-design terms precise when the sentence is about design.",
     "Relevant domains include UI/UX design, product design, design systems, interaction design, visual design, cars, phones/devices, movies, history, daily life, and English learning.",
     "When translating to English, output English punctuation, avoid Chinese punctuation, preserve standard product spacing such as Mate 70 Pro, and do not repeat the same sentence.",

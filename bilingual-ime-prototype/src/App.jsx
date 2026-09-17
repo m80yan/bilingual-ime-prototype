@@ -20,6 +20,12 @@ const secondaryLanguages = [
   { id: "en", label: "English" },
   { id: "ja", label: "日本語" },
 ];
+const translationStyles = [
+  { id: "daily", label: "Daily" },
+  { id: "formal", label: "Formal" },
+  { id: "social", label: "Social" },
+  { id: "technical", label: "Technical" },
+];
 const punctuationMap = {
   ",": "，",
   ".": "。",
@@ -168,6 +174,10 @@ function userGlossaryCandidates(pinyin, entries) {
 function userGlossaryTranslation(zh, language, entries) {
   const entry = entries.find((item) => item.zh === zh);
   return entry?.[language] || null;
+}
+
+function translationCacheKey(language, style, zh, mode = "draft") {
+  return mode === "final" ? `final:${language}:${style}:${zh}` : `${language}:${style}:${zh}`;
 }
 
 function relevantTranslationGlossary(texts, language, entries) {
@@ -332,7 +342,9 @@ export function App() {
   const [windowSize, setWindowSize] = useState({ width: 978, height: 520 });
   const [resizing, setResizing] = useState(false);
   const [secondaryLanguage, setSecondaryLanguage] = useState("en");
+  const [translationStyle, setTranslationStyle] = useState("daily");
   const [isSecondaryMenuOpen, setIsSecondaryMenuOpen] = useState(false);
+  const [isStyleMenuOpen, setIsStyleMenuOpen] = useState(false);
   const [candidatePosition, setCandidatePosition] = useState({ left: 0, top: 0 });
   const [isEditorFocused, setIsEditorFocused] = useState(false);
   const [allChineseSelected, setAllChineseSelected] = useState(false);
@@ -348,7 +360,9 @@ export function App() {
       return `${baseTranslation.replace(/[.!?。！？]$/, "")}${targetPunctuation(punctuation, language)}`;
     }
 
-    return translations[`final:${language}:${zh}`]
+    return translations[translationCacheKey(language, translationStyle, zh, "final")]
+      ?? translations[translationCacheKey(language, translationStyle, zh)]
+      ?? translations[`final:${language}:${zh}`]
       ?? translations[`${language}:${zh}`]
       ?? userGlossaryTranslation(zh, language, userGlossary)
       ?? localTranslations[zh]?.[language]
@@ -439,9 +453,9 @@ export function App() {
         && !(splitFinalPunctuation(zh).body !== zh && translationFor(splitFinalPunctuation(zh).body, secondaryLanguage) !== (secondaryLanguage === "en" ? "…" : "翻訳中…"))
         && !userGlossaryTranslation(zh, secondaryLanguage, userGlossary)
         && !(secondaryLanguage === "en" && cedictTranslations[zh]?.length)
-        && !translations[`${secondaryLanguage}:${zh}`]);
+        && !translations[translationCacheKey(secondaryLanguage, translationStyle, zh)]);
     const pendingFinal = query ? [] : [...new Set(filledSegments.filter(isFinalTranslationSegment))]
-      .filter((zh) => !translations[`final:${secondaryLanguage}:${zh}`]);
+      .filter((zh) => !translations[translationCacheKey(secondaryLanguage, translationStyle, zh, "final")]);
     const requests = [
       { mode: "draft", texts: pendingDraft },
       { mode: "final", texts: pendingFinal },
@@ -462,6 +476,7 @@ export function App() {
             body: JSON.stringify({
               texts: request.texts,
               targetLanguage: secondaryLanguage,
+              style: translationStyle,
               mode: request.mode,
               context: draftLines.join("\n"),
               glossaryEntries: relevantTranslationGlossary(request.texts, secondaryLanguage, userGlossary),
@@ -475,7 +490,7 @@ export function App() {
         const entries = resultsByMode
           .filter(Boolean)
           .flatMap(({ mode, results }) => Object.entries(results).map(([zh, translation]) => [
-            mode === "final" ? `final:${secondaryLanguage}:${zh}` : `${secondaryLanguage}:${zh}`,
+            mode === "final" ? translationCacheKey(secondaryLanguage, translationStyle, zh, "final") : translationCacheKey(secondaryLanguage, translationStyle, zh),
             translation,
           ]));
         if (entries.length) {
@@ -489,7 +504,7 @@ export function App() {
     }, 300);
 
     return () => { window.clearTimeout(debounce); controller.abort(); };
-  }, [query, selectedCandidate?.zh, selectedCandidate?.kind, draftLines, secondaryLanguage, userGlossary]);
+  }, [query, selectedCandidate?.zh, selectedCandidate?.kind, draftLines, secondaryLanguage, translationStyle, userGlossary]);
 
   useEffect(() => {
     function resize(event) {
@@ -853,6 +868,11 @@ export function App() {
     setIsSecondaryMenuOpen(false);
   }
 
+  function selectTranslationStyle(styleId) {
+    setTranslationStyle(styleId);
+    setIsStyleMenuOpen(false);
+  }
+
   function updateGlossaryDraft(field, value) {
     setGlossaryDraft((current) => ({ ...current, [field]: value }));
   }
@@ -876,8 +896,8 @@ export function App() {
     });
     setTranslations((current) => ({
       ...current,
-      ...(entry.en ? { [`en:${entry.zh}`]: entry.en } : {}),
-      ...(entry.ja ? { [`ja:${entry.zh}`]: entry.ja } : {}),
+      ...(entry.en ? { [translationCacheKey("en", translationStyle, entry.zh)]: entry.en, [`en:${entry.zh}`]: entry.en } : {}),
+      ...(entry.ja ? { [translationCacheKey("ja", translationStyle, entry.zh)]: entry.ja, [`ja:${entry.zh}`]: entry.ja } : {}),
     }));
     setGlossaryDraft(emptyGlossaryDraft);
   }
@@ -974,7 +994,9 @@ export function App() {
     setTranslations((current) => ({
       ...current,
       ...Object.fromEntries(safeEntries.flatMap((entry) => [
+        entry.en ? [translationCacheKey("en", translationStyle, entry.zh), entry.en] : null,
         entry.en ? [`en:${entry.zh}`, entry.en] : null,
+        entry.ja ? [translationCacheKey("ja", translationStyle, entry.zh), entry.ja] : null,
         entry.ja ? [`ja:${entry.zh}`, entry.ja] : null,
       ].filter(Boolean))),
     }));
@@ -991,7 +1013,7 @@ export function App() {
   function renderSecondarySegments(line, lineIndex) {
     return splitChineseSegments(line).map((segment, segmentIndex) => {
       const secondary = translationFor(segment, secondaryLanguage);
-      const translationKey = `${secondaryLanguage}:${segment}:${secondary}`;
+      const translationKey = `${secondaryLanguage}:${translationStyle}:${segment}:${secondary}`;
       const needsSpace = segmentIndex > 0;
 
       return (
@@ -1044,6 +1066,41 @@ export function App() {
     );
   }
 
+  function translationStyleCombo() {
+    const selectedStyle = translationStyles.find((style) => style.id === translationStyle);
+
+    return (
+      <div className="language-combo style-combo">
+        <button
+          className="language-control style-control"
+          type="button"
+          aria-label={`Translation style: ${selectedStyle.label}`}
+          aria-expanded={isStyleMenuOpen}
+          onClick={() => setIsStyleMenuOpen(!isStyleMenuOpen)}
+        >
+          <span>{selectedStyle.label}</span><img src="/assets/figma-triangle.svg" alt="" />
+        </button>
+        {isStyleMenuOpen && (
+          <div className="language-list style-list" role="listbox" aria-label="translation style choices">
+            {translationStyles.map((style) => (
+              <button
+                className={style.id === translationStyle ? "language-option selected" : "language-option"}
+                key={style.id}
+                type="button"
+                role="option"
+                aria-selected={style.id === translationStyle}
+                onClick={() => selectTranslationStyle(style.id)}
+              >
+                {style.id === translationStyle ? <img src="/assets/figma-check.svg" alt="Selected" /> : <span className="check-space" />}
+                <span>{style.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <main className="input-stage">
       <section className="ime-window" style={{ width: windowSize.width, height: windowSize.height }} aria-label="Chinese bilingual input tool">
@@ -1051,6 +1108,7 @@ export function App() {
           <div className="header-controls">
             <span className="field-label secondary-label">Write in Chinese +</span>
             {secondaryLanguageCombo()}
+            {translationStyleCombo()}
           </div>
         </header>
         <section className="writing-area">

@@ -191,6 +191,8 @@ The intent:
 - Do not repeatedly reload unchanged lines when earlier lines are edited.
 - Relevant `userGlossary` entries are sent with translation requests so browser-added glossary terms affect sentence translation, not just candidate generation.
 - User/session glossary entries override server seed glossary entries when both match the same term.
+- Translation style is controlled by a header selector and sent as `style` to `/api/translate`.
+- Style-specific translations are cached separately with keys like `en:formal:中文` and `final:en:social:中文`.
 
 The backend prompt has been tuned toward:
 
@@ -199,6 +201,13 @@ The backend prompt has been tuned toward:
 - concise headline-style output where suitable
 - better treatment of rhetorical/social-media Chinese
 - preserving emotional force where appropriate
+
+Supported translation styles:
+
+- `daily`: natural everyday wording
+- `formal`: polished written language for work email or documentation
+- `social`: concise, expressive, social-media-friendly output
+- `technical`: terminology-first, clear technical-documentation style
 
 Relevant commit:
 
