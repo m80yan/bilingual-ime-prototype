@@ -170,6 +170,23 @@ function userGlossaryTranslation(zh, language, entries) {
   return entry?.[language] || null;
 }
 
+function relevantTranslationGlossary(texts, language, entries) {
+  const normalizedTexts = texts.map((text) => text.toLowerCase());
+  return entries
+    .filter((entry) => entry.zh && entry[language])
+    .filter((entry) => {
+      const terms = [entry.zh, ...(entry.aliases ?? [])].filter(Boolean);
+      return terms.some((term) => normalizedTexts.some((text) => text.includes(term.toLowerCase())));
+    })
+    .map((entry) => ({
+      zh: entry.zh,
+      target: entry[language],
+      domain: entry.domain || "general",
+      source: entry.locked ? "seed" : "user",
+    }))
+    .slice(0, 20);
+}
+
 function safeGlossarySuggestion(item, existingEntries) {
   const entry = {
     zh: typeof item.zh === "string" ? item.zh.trim() : "",
@@ -447,6 +464,7 @@ export function App() {
               targetLanguage: secondaryLanguage,
               mode: request.mode,
               context: draftLines.join("\n"),
+              glossaryEntries: relevantTranslationGlossary(request.texts, secondaryLanguage, userGlossary),
             }),
             signal: controller.signal,
           });

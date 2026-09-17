@@ -189,6 +189,8 @@ The intent:
 - During candidate selection, translate only the selected candidate or relevant fragment.
 - After the user commits a full sentence, translate or polish the sentence with context.
 - Do not repeatedly reload unchanged lines when earlier lines are edited.
+- Relevant `userGlossary` entries are sent with translation requests so browser-added glossary terms affect sentence translation, not just candidate generation.
+- User/session glossary entries override server seed glossary entries when both match the same term.
 
 The backend prompt has been tuned toward:
 

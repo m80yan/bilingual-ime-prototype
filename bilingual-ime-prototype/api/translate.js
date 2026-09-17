@@ -51,6 +51,26 @@ function polishTranslation(text, language) {
   return removeRepeatedSentences(normalizeTargetPunctuation(text, language)).trim();
 }
 
+function normalizeClientGlossary(entries, targetLanguage) {
+  if (!Array.isArray(entries)) return [];
+  const seen = new Set();
+  return entries
+    .map((entry) => ({
+      zh: typeof entry.zh === "string" ? entry.zh.trim().slice(0, 40) : "",
+      target: typeof entry.target === "string" ? entry.target.trim().slice(0, 100) : "",
+      domain: typeof entry.domain === "string" ? entry.domain.trim().slice(0, 32) : "general",
+      source: entry.source === "user" ? "user" : "seed",
+    }))
+    .filter((entry) => entry.zh && entry.target && /[\u3400-\u9fff]/.test(entry.zh))
+    .filter((entry) => {
+      const key = `${targetLanguage}:${entry.zh}:${entry.target}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 20);
+}
+
 export default async function handler(request, response) {
   if (request.method !== "POST") return json(response, { error: "Method not allowed" }, 405);
 
@@ -81,7 +101,12 @@ export default async function handler(request, response) {
   if (!remoteTexts.length) return json(response, { translations: localResults });
   if (!process.env.OPENAI_API_KEY) return json(response, { error: "Translation service is not configured" }, 503);
 
-  const relevantGlossary = getRelevantGlossary(remoteTexts, targetLanguage);
+  const clientGlossary = normalizeClientGlossary(body.glossaryEntries, targetLanguage);
+  const relevantGlossary = [
+    ...clientGlossary,
+    ...getRelevantGlossary(remoteTexts, targetLanguage)
+      .filter((entry) => !clientGlossary.some((clientEntry) => clientEntry.zh === entry.zh)),
+  ];
   const prompt = [
     `Translate every Simplified Chinese item into ${supportedLanguages[targetLanguage]}.`,
     mode === "final"
@@ -103,7 +128,9 @@ export default async function handler(request, response) {
       ? "Translate Chinese idioms and evaluative phrases by function: use natural English constructions such as a dead end, lead nowhere, doomed to fail, a scam, a trap, or a bubble when they match the tone, instead of preserving the original syntax."
       : "",
     context ? `Use this surrounding Chinese context when it helps: ${context}` : "",
-    `Use these matched glossary entries when relevant: ${JSON.stringify(relevantGlossary)}`,
+    relevantGlossary.length
+      ? `Glossary constraints. Use these translations for matching terms when they appear in the source; user entries override defaults: ${JSON.stringify(relevantGlossary)}`
+      : "",
     "Return only a JSON object whose keys are the original Chinese strings and values are their translations.",
     JSON.stringify(remoteTexts),
   ].join("\n");
