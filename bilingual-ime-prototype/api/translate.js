@@ -5,10 +5,11 @@ const supportedLanguages = {
   ja: "natural Japanese",
 };
 const translationStyleInstructions = {
-  daily: "Style: daily. Use natural everyday wording that sounds like a fluent person writing normally. Keep rhetorical force and emotional color when the source needs it.",
-  formal: "Style: formal. Use polished written language, avoid slang and contractions, and keep the tone suitable for work email or documentation.",
-  technical: "Style: technical documentation. Prioritize terminology accuracy, clear structure, concise sentences, and unambiguous wording.",
+  daily: "Style: daily. Use natural everyday wording, idiomatic phrasing, and conversational rhythm when appropriate. Prefer living expressions over stiff literal phrasing; for example, use idioms such as one-way ticket when they fit the meaning.",
+  formal: "Style: formal. Use elevated written vocabulary and more complex sentence structures suitable for essays, reports, or official communication. Avoid basic conversational wording, slang, contractions, and casual phrasing; prefer words such as inevitably, commence, undertake, embark, substantial, and consequently when natural. Terminology must still be professionally correct.",
+  technical: "Style: technical documentation. Use standard professional terminology, objective wording, concise structure, and unambiguous phrasing. Avoid literary flourish, rhetorical exaggeration, and ornamental vocabulary. Accuracy and precision outrank elegance.",
 };
+const terminologyPriorityInstruction = "Terminology accuracy has absolute priority over literal word-by-word translation. Before translating, identify domain-specific terms and use the accepted professional English term when one exists; never invent calques such as U-ship when the standard term is U-boat. This rule is mandatory for technical and formal styles and still preferred for daily style.";
 
 function readOutputText(data) {
   if (typeof data.output_text === "string") return data.output_text;
@@ -124,8 +125,18 @@ export default async function handler(request, response) {
     mode === "final"
       ? "These are completed sentences. Rewrite them as natural, context-aware output. Preserve the meaning and tone; do not translate word-for-word when a native phrase is better."
       : "Use concise, natural wording for a bilingual writing/IME demo. Do not translate word-for-word when a native phrase is better.",
+    terminologyPriorityInstruction,
     translationStyleInstructions[style],
-    "Prefer everyday American English for English output. Keep professional UI/UX and product-design terms precise when the sentence is about design.",
+    style === "formal"
+      ? "For formal English, make the register visibly different from daily English: choose elevated diction, vary clause structure, and avoid plain chat-like verbs unless no formal alternative is natural. Do not sacrifice term accuracy for ornamentation."
+      : "",
+    style === "technical"
+      ? "For technical English, prefer the shortest accurate professional wording. Use established military, engineering, UI/UX, automotive, device, and product terms; do not use poetic or dramatic language."
+      : "",
+    style === "daily"
+      ? "For daily English, sound natural and fluent, using common idioms and everyday American phrasing when they convey the Chinese meaning better than literal translation."
+      : "",
+    "Prefer everyday American English for daily English output. Keep professional UI/UX, product-design, military, automotive, device, movie, history, education, and business terms precise whenever those domains appear.",
     "Relevant domains include UI/UX design, product design, design systems, interaction design, visual design, cars, phones/devices, movies, history, daily life, and English learning.",
     "When translating to English, output English punctuation, avoid Chinese punctuation, preserve standard product spacing such as Mate 70 Pro, and do not repeat the same sentence.",
     mode === "final"
@@ -142,7 +153,7 @@ export default async function handler(request, response) {
       : "",
     context ? `Use this surrounding Chinese context when it helps: ${context}` : "",
     relevantGlossary.length
-      ? `Glossary constraints. Use these translations for matching terms when they appear in the source; user entries override defaults: ${JSON.stringify(relevantGlossary)}`
+      ? `Glossary constraints. Use these translations for matching terms when they appear in the source; user entries and edited translations override defaults and style rules: ${JSON.stringify(relevantGlossary)}`
       : "",
     "Return only a JSON object whose keys are the original Chinese strings and values are their translations.",
     JSON.stringify(remoteTexts),

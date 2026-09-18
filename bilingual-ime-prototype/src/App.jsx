@@ -48,6 +48,7 @@ const USER_LEARNING_HALF_LIFE_MS = 1000 * 60 * 60 * 24 * 7;
 const HISTORY_LIMIT = 80;
 const emptyGlossaryDraft = { zh: "", pinyin: "", en: "", ja: "", domain: "common" };
 const glossarySuggestionDomains = new Set(["design-uiux", "internet-slang", "history", "history-politics", "place", "auto", "ui", "movie", "device", "education", "business", "technology", "general"]);
+const highPriorityFeedbackTags = new Set(["terminology_error", "tone_mismatch"]);
 const seedGlossaryEntries = domainGlossarySeedEntries.map((entry) => ({
   zh: entry.zh,
   pinyin: entry.pinyin,
@@ -234,6 +235,7 @@ function safeGlossarySuggestion(item, existingEntries) {
     ja: typeof item.ja === "string" ? item.ja.trim() : "",
     domain: glossarySuggestionDomains.has(item.domain) ? item.domain : "general",
     weight: Number.isFinite(item.weight) ? Math.max(50, Math.min(130, Math.round(item.weight))) : 80,
+    feedbackTags: Array.isArray(item.feedbackTags) ? item.feedbackTags.filter((tag) => highPriorityFeedbackTags.has(tag)) : [],
     locked: false,
   };
   const key = `${entry.zh}:${normalizePinyin(entry.pinyin)}`;

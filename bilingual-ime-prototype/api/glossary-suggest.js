@@ -15,6 +15,7 @@ const allowedDomains = new Set([
   "technology",
   "general",
 ]);
+const highPriorityFeedbackTags = new Set(["terminology_error", "tone_mismatch"]);
 
 function json(response, body, status = 200) {
   response.setHeader("Cache-Control", "no-store");
@@ -44,9 +45,15 @@ function normalizeSuggestion(item, index) {
   const weight = Number.isFinite(item.weight) ? Math.max(50, Math.min(130, Math.round(item.weight))) : 80;
   const reason = normalizeText(item.reason, 120);
   const source = normalizeText(item.source, 80) || "auto-suggested";
+  const feedbackTags = Array.isArray(item.feedbackTags)
+    ? item.feedbackTags
+        .map((tag) => normalizeText(tag, 32))
+        .filter((tag) => highPriorityFeedbackTags.has(tag))
+    : [];
 
   if (!zh || !pinyin || !en || !ja) return null;
   if (!/[\u3400-\u9fff]/.test(zh)) return null;
+  const priorityBoost = feedbackTags.some((tag) => highPriorityFeedbackTags.has(tag)) ? 20 : 0;
 
   return {
     zh,
@@ -54,9 +61,10 @@ function normalizeSuggestion(item, index) {
     en,
     ja,
     domain,
-    weight,
+    weight: Math.min(130, weight + priorityBoost),
     reason,
     source,
+    feedbackTags,
     status: "pending",
     rank: index + 1,
   };
@@ -105,9 +113,11 @@ export default async function handler(request, response) {
     "You are helping maintain a web-based Chinese bilingual IME glossary for a Notion embed. Users do not have local IME resources.",
     "Extract high-value glossary entries from the provided Chinese corpus and hints.",
     "Prioritize reusable terms that improve candidate generation or translation: proper nouns, place names, institutions, product names, UI/UX terms, internet workplace slang, car/device/movie/history/education/business terms, idioms, and fixed expressions.",
+    "Treat terminology errors and tone mismatches as high-priority feedback. If a term needs a standard professional translation, mark feedbackTags with terminology_error. If a phrase needs style/register control for Daily/Formal/Technical, mark feedbackTags with tone_mismatch.",
+    "Use accepted professional terms instead of literal calques; for example, use U-boat rather than U-ship when the Chinese source refers to the historical/military term.",
     "Do not include generic single characters, ordinary function words, or full sentences unless the full phrase is a reusable fixed expression.",
     "Do not duplicate existing terms.",
-    "Return only a JSON array. Each item must have: zh, pinyin, en, ja, domain, weight, reason, source.",
+    "Return only a JSON array. Each item must have: zh, pinyin, en, ja, domain, weight, reason, source, feedbackTags.",
     "Use lowercase pinyin with no tone marks and no spaces. Use domain from this list: design-uiux, internet-slang, history, history-politics, place, auto, ui, movie, device, education, business, technology, general.",
     "Use weight from 50 to 130. Higher means more important for candidate ranking.",
     `Return at most ${maxSuggestions} items.`,
