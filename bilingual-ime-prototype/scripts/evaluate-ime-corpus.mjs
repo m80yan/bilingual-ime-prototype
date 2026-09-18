@@ -1,6 +1,6 @@
 import { domainGlossaryPinyinIndex, domainGlossarySeedEntries, normalizeGlossaryPinyin } from "../src/data/domainGlossarySeed.js";
 import { imeEvaluationCases } from "../src/data/imeEvaluationCases.js";
-import { getPinyinCandidates } from "../src/pinyinEngine.js";
+import { getPinyinCandidates, remainingPinyinAfterLeadingCandidate } from "../src/pinyinEngine.js";
 
 function normalizePinyin(value) {
   return value.toLowerCase().replace(/[^a-z]/g, "");
@@ -92,6 +92,26 @@ for (const testCase of candidateRankingCases) {
   }
 }
 
+const remainingPinyinCases = [
+  {
+    input: "zhenbuganxiangxin",
+    candidate: "真不",
+    expected: "ganxiangxin",
+  },
+  {
+    input: "xili",
+    candidate: "西",
+    expected: "li",
+  },
+];
+
+for (const testCase of remainingPinyinCases) {
+  const actual = remainingPinyinAfterLeadingCandidate(testCase.input, testCase.candidate);
+  if (actual !== testCase.expected) {
+    failures.push(`${testCase.input}: expected remaining pinyin ${testCase.expected} after ${testCase.candidate}, got ${actual || "(empty)"}`);
+  }
+}
+
 const duplicateKeys = domainGlossarySeedEntries
   .map((entry) => `${entry.zh}:${normalizePinyin(entry.pinyin)}`)
   .filter((key, index, keys) => keys.indexOf(key) !== index);
@@ -104,4 +124,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`IME corpus check passed: ${imeEvaluationCases.length} glossary cases, ${candidateRankingCases.length} ranking cases, ${domainGlossarySeedEntries.length} seed entries.`);
+console.log(`IME corpus check passed: ${imeEvaluationCases.length} glossary cases, ${candidateRankingCases.length} ranking cases, ${remainingPinyinCases.length} continuation cases, ${domainGlossarySeedEntries.length} seed entries.`);

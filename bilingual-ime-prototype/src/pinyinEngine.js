@@ -321,7 +321,17 @@ export function getPinyinCandidates(value, limit = 25) {
 export function remainingPinyinAfterLeadingCandidate(value, candidate) {
   const input = value.toLowerCase().replace(/[^a-z]/g, "");
   const syllables = splitIntoSyllables(input);
-  if (syllables.length !== 2 || candidate.length !== 1) return "";
-  if (!leadingSyllableCandidates(input, 25).includes(candidate)) return "";
-  return syllables.slice(1).join("");
+  if (syllables.length < 2 || !candidate) return "";
+
+  for (let length = syllables.length - 1; length >= 1; length -= 1) {
+    const prefix = syllables.slice(0, length).join("");
+    const prefixCandidates = unique([
+      ...domainGlossaryCandidates(prefix, 25),
+      ...rankedDictEntries(prefix, 8).map((entry) => entry.w),
+      ...segmentedCandidatePaths(prefix, 12).map((path) => path.text),
+    ], 25);
+    if (prefixCandidates.includes(candidate)) return syllables.slice(length).join("");
+  }
+
+  return "";
 }
