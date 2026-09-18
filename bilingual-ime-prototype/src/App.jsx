@@ -1096,7 +1096,7 @@ export function App() {
   function renderSecondarySegments(line, lineIndex) {
     return splitChineseSegments(line).map((segment, segmentIndex) => {
       const secondary = translationFor(segment, secondaryLanguage, frozenFinalTranslationKey(secondaryLanguage, lineIndex, segmentIndex, segment));
-      const translationKey = `${secondaryLanguage}:${translationStyle}:${segment}:${secondary}`;
+      const translationKey = `${secondaryLanguage}:${lineIndex}:${segmentIndex}:${segment}:${secondary}`;
       const needsSpace = segmentIndex > 0;
 
       return (
