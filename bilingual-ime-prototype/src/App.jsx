@@ -420,6 +420,18 @@ export function App() {
     return `${baseTranslation.replace(/[.!?。！？]$/, "")}${targetPunctuation(punctuation, language)}`;
   }
 
+  function unpunctuatedTranslationFromFinal(zh, language, lineIndex, segmentIndex, entries) {
+    if (isFinalTranslationSegment(zh)) return null;
+    const punctuatedSource = ["。", "！", "？", "!", "?"].map((mark) => `${zh}${mark}`);
+    const baseTranslation = punctuatedSource
+      .map((source) => entries[frozenFinalTranslationKey(language, lineIndex, segmentIndex, source)]
+        ?? entries[translationCacheKey(language, translationStyle, source, "final")]
+        ?? entries[translationCacheKey(language, translationStyle, source)]
+        ?? entries[`${language}:${source}`])
+      .find((translation) => translation && translation !== "…" && translation !== "翻訳中…");
+    return baseTranslation ? baseTranslation.replace(/[.!?。！？]$/, "") : null;
+  }
+
   const rankedChineseCandidates = useMemo(() => {
     const context = draftLines.join("");
     const pinyinLimit = query.length <= 6 ? SHORT_PINYIN_CANDIDATE_LIMIT : DEFAULT_PINYIN_CANDIDATE_LIMIT;
@@ -506,13 +518,17 @@ export function App() {
       setLoadingSegments(segmentKeys);
     }
 
-    const pendingSource = query ? [selectedCandidateText] : segmentInstances.filter((instance) => !instance.isFinal).map((instance) => instance.zh);
-    const pendingDraft = [...new Set(pendingSource.filter(Boolean))]
-      .filter((zh) => !localTranslations[zh]?.[secondaryLanguage]
+    const pendingSource = query
+      ? [{ zh: selectedCandidateText, lineIndex: -1, segmentIndex: -1 }]
+      : segmentInstances.filter((instance) => !instance.isFinal);
+    const pendingDraft = [...new Map(pendingSource.filter(({ zh }) => Boolean(zh)).map((instance) => [instance.zh, instance])).values()]
+      .filter(({ zh, lineIndex, segmentIndex }) => !localTranslations[zh]?.[secondaryLanguage]
+        && !unpunctuatedTranslationFromFinal(zh, secondaryLanguage, lineIndex, segmentIndex, translations)
         && !(splitFinalPunctuation(zh).body !== zh && translationFor(splitFinalPunctuation(zh).body, secondaryLanguage) !== (secondaryLanguage === "en" ? "…" : "翻訳中…"))
         && !userGlossaryTranslation(zh, secondaryLanguage, userGlossary)
         && !(secondaryLanguage === "en" && cedictTranslations[zh]?.length)
-        && !translations[translationCacheKey(secondaryLanguage, translationStyle, zh)]);
+        && !translations[translationCacheKey(secondaryLanguage, translationStyle, zh)])
+      .map(({ zh }) => zh);
     const pendingFinalInstances = query ? [] : segmentInstances
       .filter((instance) => instance.isFinal)
       .filter(({ frozenKey }) => !translations[frozenKey]);
@@ -1204,7 +1220,8 @@ export function App() {
 
   function renderSecondarySegments(line, lineIndex) {
     return splitChineseSegments(line).map((segment, segmentIndex) => {
-      const secondary = translationFor(segment, secondaryLanguage, frozenFinalTranslationKey(secondaryLanguage, lineIndex, segmentIndex, segment));
+      const secondary = unpunctuatedTranslationFromFinal(segment, secondaryLanguage, lineIndex, segmentIndex, translations)
+        ?? translationFor(segment, secondaryLanguage, frozenFinalTranslationKey(secondaryLanguage, lineIndex, segmentIndex, segment));
       const translationKey = `${secondaryLanguage}:${lineIndex}:${segmentIndex}:${segment}:${secondary}`;
       const needsSpace = segmentIndex > 0;
 
