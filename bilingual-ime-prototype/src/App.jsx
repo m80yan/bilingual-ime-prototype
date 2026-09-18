@@ -1401,7 +1401,7 @@ export function App() {
                       onKeyUp={updateCandidatePosition}
                       onClick={() => { setAllChineseSelected(false); updateCandidatePosition(); }}
                       onSelect={updateCandidatePosition}
-                      placeholder={index === 0 && !(query && activeLine === index) ? "用英文输入法打出拼音…" : ""}
+                      placeholder={index === 0 && !(query && activeLine === index) ? "Type Chinese here — English appears below…" : ""}
                       aria-label={`中文正文第 ${index + 1} 行`}
                       autoComplete="off"
                       spellCheck="false"
