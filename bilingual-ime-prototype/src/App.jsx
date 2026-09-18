@@ -199,8 +199,8 @@ function translationCacheKey(language, style, zh, mode = "draft") {
   return mode === "final" ? `final:${language}:${style}:${zh}` : `${language}:${style}:${zh}`;
 }
 
-function frozenFinalTranslationKey(language, zh) {
-  return `final:${language}:${zh}`;
+function frozenFinalTranslationKey(language, lineIndex, segmentIndex, zh) {
+  return `final:${language}:line:${lineIndex}:segment:${segmentIndex}:${zh}`;
 }
 
 function translationPatchKey(language, style, zh) {
@@ -382,9 +382,9 @@ export function App() {
   const previousDraftLines = useRef([""]);
   const resizeStart = useRef(null);
 
-  function translationFor(zh, language) {
+  function translationFor(zh, language, frozenKey = null) {
     const exactTranslation = translationPatches[translationPatchKey(language, translationStyle, zh)]
-      ?? (isFinalTranslationSegment(zh) ? translations[frozenFinalTranslationKey(language, zh)] : null)
+      ?? (frozenKey && isFinalTranslationSegment(zh) ? translations[frozenKey] : null)
       ?? translations[translationCacheKey(language, translationStyle, zh, "final")]
       ?? translations[translationCacheKey(language, translationStyle, zh)]
       ?? translations[`${language}:${zh}`]
@@ -452,7 +452,15 @@ export function App() {
   }, [query, activeLine, draftLines, windowSize]);
 
   useEffect(() => {
-    const filledSegments = draftLines.flatMap(splitChineseSegments).filter(isChineseText);
+    const segmentInstances = draftLines.flatMap((line, lineIndex) => (
+      splitChineseSegments(line).map((segment, segmentIndex) => ({
+        zh: segment,
+        lineIndex,
+        segmentIndex,
+        frozenKey: frozenFinalTranslationKey(secondaryLanguage, lineIndex, segmentIndex, segment),
+      }))
+    )).filter(({ zh }) => isChineseText(zh));
+    const filledSegments = segmentInstances.map(({ zh }) => zh);
     const selectedCandidateText = query && selectedCandidate?.kind !== "en" ? selectedCandidate?.zh : null;
     if (!filledSegments.length && !selectedCandidateText) {
       setLoadingSegments({});
@@ -486,9 +494,11 @@ export function App() {
         && !userGlossaryTranslation(zh, secondaryLanguage, userGlossary)
         && !(secondaryLanguage === "en" && cedictTranslations[zh]?.length)
         && !translations[translationCacheKey(secondaryLanguage, translationStyle, zh)]);
-    const pendingFinal = query ? [] : [...new Set(filledSegments.filter(isFinalTranslationSegment))]
-      .filter((zh) => !translations[frozenFinalTranslationKey(secondaryLanguage, zh)]
+    const pendingFinalInstances = query ? [] : segmentInstances
+      .filter(({ zh }) => isFinalTranslationSegment(zh))
+      .filter(({ zh, frozenKey }) => !translations[frozenKey]
         && !translations[translationCacheKey(secondaryLanguage, translationStyle, zh, "final")]);
+    const pendingFinal = [...new Set(pendingFinalInstances.map(({ zh }) => zh))];
     const requests = [
       { mode: "draft", texts: pendingDraft },
       { mode: "final", texts: pendingFinal },
@@ -527,7 +537,11 @@ export function App() {
               mode === "final" ? translationCacheKey(secondaryLanguage, translationStyle, zh, "final") : translationCacheKey(secondaryLanguage, translationStyle, zh),
               translation,
             ],
-            ...(mode === "final" ? [[frozenFinalTranslationKey(secondaryLanguage, zh), translation]] : []),
+            ...(mode === "final"
+              ? pendingFinalInstances
+                  .filter((instance) => instance.zh === zh)
+                  .map((instance) => [instance.frozenKey, translation])
+              : []),
           ]));
         if (entries.length) {
           setTranslations((current) => ({ ...current, ...Object.fromEntries(entries) }));
@@ -1081,7 +1095,7 @@ export function App() {
 
   function renderSecondarySegments(line, lineIndex) {
     return splitChineseSegments(line).map((segment, segmentIndex) => {
-      const secondary = translationFor(segment, secondaryLanguage);
+      const secondary = translationFor(segment, secondaryLanguage, frozenFinalTranslationKey(secondaryLanguage, lineIndex, segmentIndex, segment));
       const translationKey = `${secondaryLanguage}:${translationStyle}:${segment}:${secondary}`;
       const needsSpace = segmentIndex > 0;
 
