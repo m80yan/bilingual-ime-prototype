@@ -489,6 +489,19 @@ export function App() {
     setQueryCursor((current) => Math.min(current, query.length));
   }, [query]);
 
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      const firstInput = inputRefs.current[0];
+      if (!firstInput) return;
+      firstInput.focus();
+      firstInput.setSelectionRange(firstInput.value.length, firstInput.value.length);
+      setActiveLine(0);
+      setIsEditorFocused(true);
+      updateCandidatePosition();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
   useLayoutEffect(() => {
     updateCandidatePosition();
   }, [query, activeLine, draftLines, windowSize]);
