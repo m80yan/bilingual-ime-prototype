@@ -906,6 +906,20 @@ export function App() {
       requestAnimationFrame(() => inputRefs.current[0]?.focus());
       return;
     }
+    if (allChineseSelected && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+      event.preventDefault();
+      const collapseToStart = event.key === "ArrowLeft" || event.key === "ArrowUp";
+      const nextLine = collapseToStart ? 0 : draftLines.length - 1;
+      const nextPosition = collapseToStart ? 0 : (draftLines[nextLine] ?? "").length;
+      setAllChineseSelected(false);
+      setActiveLine(nextLine);
+      requestAnimationFrame(() => {
+        inputRefs.current[nextLine]?.focus();
+        inputRefs.current[nextLine]?.setSelectionRange(nextPosition, nextPosition);
+        updateCandidatePosition();
+      });
+      return;
+    }
     if (allChineseSelected && event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey) {
       setAllChineseSelected(false);
     }
