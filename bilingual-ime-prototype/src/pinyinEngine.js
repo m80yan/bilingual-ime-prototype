@@ -389,8 +389,8 @@ export function remainingPinyinAfterLeadingCandidate(value, candidate) {
     const prefixCandidates = unique([
       ...(preferredSyllableCandidates[prefix] ?? []),
       ...domainGlossaryCandidates(prefix, 25),
-      ...rankedDictEntries(prefix, 8).map((entry) => entry.w),
-    ], 25);
+      ...rankedDictEntries(prefix, 49).map((entry) => entry.w),
+    ], 49);
     if (prefixCandidates.includes(candidate)) return syllables.slice(length).join("");
   }
 
