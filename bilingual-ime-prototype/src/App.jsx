@@ -387,8 +387,8 @@ export function App() {
   const redoStack = useRef([]);
 
   function translationFor(zh, language, frozenKey = null) {
-    const exactTranslation = translationPatches[translationPatchKey(language, translationStyle, zh)]
-      ?? (frozenKey && isFinalTranslationSegment(zh) ? translations[frozenKey] : null)
+    const exactTranslation = (frozenKey ? translations[frozenKey] : null)
+      ?? translationPatches[translationPatchKey(language, translationStyle, zh)]
       ?? translations[translationCacheKey(language, translationStyle, zh, "final")]
       ?? translations[translationCacheKey(language, translationStyle, zh)]
       ?? translations[`${language}:${zh}`]
@@ -463,6 +463,7 @@ export function App() {
         lineIndex,
         segmentIndex,
         frozenKey: frozenFinalTranslationKey(secondaryLanguage, lineIndex, segmentIndex, segment),
+        isFinal: isFinalTranslationSegment(segment) || lineIndex < draftLines.length - 1,
       }))
     )).filter(({ zh }) => isChineseText(zh));
     const filledSegments = segmentInstances.map(({ zh }) => zh);
@@ -491,19 +492,31 @@ export function App() {
       setLoadingSegments(segmentKeys);
     }
 
-    const pendingSource = query ? [selectedCandidateText] : filledSegments;
+    const pendingSource = query ? [selectedCandidateText] : segmentInstances.filter((instance) => !instance.isFinal).map((instance) => instance.zh);
     const pendingDraft = [...new Set(pendingSource.filter(Boolean))]
-      .filter((zh) => query || !isFinalTranslationSegment(zh))
       .filter((zh) => !localTranslations[zh]?.[secondaryLanguage]
         && !(splitFinalPunctuation(zh).body !== zh && translationFor(splitFinalPunctuation(zh).body, secondaryLanguage) !== (secondaryLanguage === "en" ? "…" : "翻訳中…"))
         && !userGlossaryTranslation(zh, secondaryLanguage, userGlossary)
         && !(secondaryLanguage === "en" && cedictTranslations[zh]?.length)
         && !translations[translationCacheKey(secondaryLanguage, translationStyle, zh)]);
     const pendingFinalInstances = query ? [] : segmentInstances
-      .filter(({ zh }) => isFinalTranslationSegment(zh))
-      .filter(({ zh, frozenKey }) => !translations[frozenKey]
-        && !translations[translationCacheKey(secondaryLanguage, translationStyle, zh, "final")]);
-    const pendingFinal = [...new Set(pendingFinalInstances.map(({ zh }) => zh))];
+      .filter((instance) => instance.isFinal)
+      .filter(({ frozenKey }) => !translations[frozenKey]);
+    const existingFinalEntries = pendingFinalInstances.flatMap(({ zh, frozenKey }) => {
+      const existingTranslation = translations[translationCacheKey(secondaryLanguage, translationStyle, zh, "final")]
+        ?? translations[translationCacheKey(secondaryLanguage, translationStyle, zh)]
+        ?? translations[`${secondaryLanguage}:${zh}`]
+        ?? userGlossaryTranslation(zh, secondaryLanguage, userGlossary)
+        ?? localTranslations[zh]?.[secondaryLanguage]
+        ?? (secondaryLanguage === "en" && cedictTranslations[zh]?.length ? cedictTranslations[zh].join("; ") : null);
+      return existingTranslation ? [[frozenKey, existingTranslation]] : [];
+    });
+    if (existingFinalEntries.length) {
+      setTranslations((current) => ({ ...current, ...Object.fromEntries(existingFinalEntries) }));
+    }
+    const pendingFinal = [...new Set(pendingFinalInstances
+      .filter(({ frozenKey }) => !existingFinalEntries.some(([key]) => key === frozenKey))
+      .map(({ zh }) => zh))];
     const requests = [
       { mode: "draft", texts: pendingDraft },
       { mode: "final", texts: pendingFinal },
