@@ -628,17 +628,6 @@ export function App() {
     return () => { window.removeEventListener("pointermove", resize); window.removeEventListener("pointerup", stop); };
   }, []);
 
-  useEffect(() => {
-    function openGlossary(event) {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        setIsGlossaryOpen(true);
-      }
-    }
-    window.addEventListener("keydown", openGlossary);
-    return () => window.removeEventListener("keydown", openGlossary);
-  }, []);
-
   function replaceDraftSelection(text) {
     if (allChineseSelected) {
       setAllChineseSelected(false);
@@ -1441,10 +1430,6 @@ export function App() {
           </div>
         </section>
         <footer className="ime-footer"><span>{`Smart ${footerLanguageLabel} output as you write Chinese`}</span><button className={resizing ? "resize-handle active" : "resize-handle"} onPointerDown={startResize} aria-label="Drag to resize window"><span className="resize-grip" aria-hidden="true">{[1, 2, 3].map((count) => <span className="resize-grip-row" key={count}>{Array.from({ length: count }, (_, index) => <img key={index} src={resizing ? "/assets/figma-drag-handle-pressed.svg" : "/assets/figma-drag-handle-default.svg"} alt="" />)}</span>)}</span></button></footer>
-        <div className="footer-tools">
-          <button className="glossary-trigger" type="button" onClick={() => setIsGlossaryOpen(true)}>Glossary</button>
-          <button className="learning-reset" type="button" onClick={clearLearningData}>Reset learning</button>
-        </div>
         {isGlossaryOpen && (
           <div className="glossary-overlay" role="dialog" aria-modal="true" aria-label="Editable glossary">
             <form className="glossary-panel" onSubmit={saveGlossaryEntry}>
