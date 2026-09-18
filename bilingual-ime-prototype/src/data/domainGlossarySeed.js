@@ -44,6 +44,7 @@ const reviewedDomainGlossarySeedEntries = [
   { zh: "罗斯诸公国", pinyin: "luosizhugongguo", en: "the Rus' principalities", ja: "ルーシ諸公国", domain: "history", status: "reviewed" },
   { zh: "莫斯科", pinyin: "mosike", en: "Moscow", ja: "モスクワ", domain: "place", status: "reviewed" },
   { zh: "星球大战计划", pinyin: "xingqiudazhanjihua", en: "the Strategic Defense Initiative", ja: "戦略防衛構想", domain: "history-politics", aliases: ["战略防御倡议"], status: "reviewed" },
+  { zh: "中央情报局", pinyin: "zhongyangqingbaoju", en: "Central Intelligence Agency", ja: "中央情報局", domain: "history-politics", aliases: ["CIA"], status: "reviewed" },
   { zh: "西历", pinyin: "xili", en: "the Western calendar", ja: "西暦", domain: "general", status: "reviewed" },
   { zh: "车机系统", pinyin: "chejixitong", en: "in-car system", ja: "車載システム", domain: "auto", status: "reviewed" },
   { zh: "OTA升级", pinyin: "otashengji", en: "OTA update", ja: "OTAアップデート", domain: "auto", aliases: ["ota升级"], status: "reviewed" },

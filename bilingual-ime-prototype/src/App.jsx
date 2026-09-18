@@ -313,6 +313,10 @@ function rankWithUserDictionary(candidates, pinyin, dictionary, glossary, contex
     .map((item) => item.zh);
 }
 
+function learnedCandidates(pinyin, dictionary) {
+  return Object.keys(dictionary[normalizePinyin(pinyin)] ?? {});
+}
+
 function ScrambleText({ text, onDone }) {
   const [visibleCount, setVisibleCount] = useState(0);
 
@@ -391,6 +395,7 @@ export function App() {
   const resizeStart = useRef(null);
   const undoStack = useRef([]);
   const redoStack = useRef([]);
+  const compositionLearning = useRef(null);
 
   function translationFor(zh, language, frozenKey = null) {
     const exactTranslation = (frozenKey ? translations[frozenKey] : null)
@@ -442,7 +447,7 @@ export function App() {
     const context = draftLines.join("");
     const pinyinLimit = query.length <= 6 ? SHORT_PINYIN_CANDIDATE_LIMIT : DEFAULT_PINYIN_CANDIDATE_LIMIT;
     return rankWithUserDictionary(
-      [...userGlossaryCandidates(query, userGlossary), ...getPinyinCandidates(query, pinyinLimit)],
+      [...learnedCandidates(query, userDictionary), ...userGlossaryCandidates(query, userGlossary), ...getPinyinCandidates(query, pinyinLimit)],
       query,
       userDictionary,
       userGlossary,
@@ -781,6 +786,9 @@ export function App() {
       setUserDictionary((current) => {
         const key = normalizePinyin(query);
         const existing = current[key]?.[candidate.zh];
+        const activeComposition = compositionLearning.current?.remaining === key ? compositionLearning.current : null;
+        const composedPhrase = activeComposition ? `${activeComposition.zh}${candidate.zh}` : candidate.zh;
+        const originalPinyin = activeComposition?.pinyin ?? key;
         const next = {
           ...current,
           [key]: {
@@ -791,9 +799,27 @@ export function App() {
             },
           },
         };
+        if (activeComposition && !remainingQuery && composedPhrase.length > candidate.zh.length) {
+          const phraseExisting = next[originalPinyin]?.[composedPhrase];
+          next[originalPinyin] = {
+            ...(next[originalPinyin] ?? {}),
+            [composedPhrase]: {
+              count: (phraseExisting?.count ?? 0) + 2,
+              lastUsedAt: Date.now(),
+            },
+          };
+        }
         writeUserDictionary(next);
         return next;
       });
+      const key = normalizePinyin(query);
+      const activeComposition = compositionLearning.current?.remaining === key ? compositionLearning.current : null;
+      const composedPhrase = activeComposition ? `${activeComposition.zh}${candidate.zh}` : candidate.zh;
+      compositionLearning.current = remainingQuery
+        ? { pinyin: activeComposition?.pinyin ?? key, zh: composedPhrase, remaining: remainingQuery }
+        : null;
+    } else if (!remainingQuery) {
+      compositionLearning.current = null;
     }
     replaceDraftSelection(`${candidate?.zh ?? ""}${suffix}`);
     setQuery(remainingQuery);
