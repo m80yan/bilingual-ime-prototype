@@ -43,6 +43,7 @@ const USER_GLOSSARY_KEY = "ime:domain-glossary";
 const MISSED_QUERIES_KEY = "ime:missed-queries";
 const USER_TRANSLATION_PATCHES_KEY = "ime:user-translation-patches";
 const USER_LEARNING_HALF_LIFE_MS = 1000 * 60 * 60 * 24 * 7;
+const HISTORY_LIMIT = 80;
 const emptyGlossaryDraft = { zh: "", pinyin: "", en: "", ja: "", domain: "common" };
 const glossarySuggestionDomains = new Set(["design-uiux", "internet-slang", "history", "history-politics", "place", "auto", "ui", "movie", "device", "education", "business", "technology", "general"]);
 const seedGlossaryEntries = domainGlossarySeedEntries.map((entry) => ({
@@ -380,6 +381,8 @@ export function App() {
   const inputRefs = useRef([]);
   const previousDraftLines = useRef([""]);
   const resizeStart = useRef(null);
+  const undoStack = useRef([]);
+  const redoStack = useRef([]);
 
   function translationFor(zh, language, frozenKey = null) {
     const exactTranslation = translationPatches[translationPatchKey(language, translationStyle, zh)]
@@ -605,6 +608,59 @@ export function App() {
     });
   }
 
+  function editorSnapshot() {
+    const editor = inputRefs.current[activeLine];
+    const currentLine = draftLines[activeLine] ?? "";
+    const cursorStart = editor?.selectionStart ?? currentLine.length;
+    const cursorEnd = editor?.selectionEnd ?? cursorStart;
+    return {
+      draftLines,
+      softBreaks,
+      query,
+      queryCursor,
+      activeLine,
+      allChineseSelected,
+      cursorStart,
+      cursorEnd,
+    };
+  }
+
+  function restoreEditorSnapshot(snapshot) {
+    setDraftLines(snapshot.draftLines);
+    setSoftBreaks(snapshot.softBreaks);
+    setQuery(snapshot.query);
+    setQueryCursor(snapshot.queryCursor);
+    setActiveLine(snapshot.activeLine);
+    setAllChineseSelected(snapshot.allChineseSelected);
+    requestAnimationFrame(() => {
+      const editor = inputRefs.current[snapshot.activeLine];
+      editor?.focus();
+      editor?.setSelectionRange(snapshot.cursorStart, snapshot.cursorEnd);
+      updateCandidatePosition();
+    });
+  }
+
+  function pushUndoSnapshot() {
+    undoStack.current = [...undoStack.current, editorSnapshot()].slice(-HISTORY_LIMIT);
+    redoStack.current = [];
+  }
+
+  function undoEditorChange() {
+    const previous = undoStack.current.at(-1);
+    if (!previous) return;
+    undoStack.current = undoStack.current.slice(0, -1);
+    redoStack.current = [...redoStack.current, editorSnapshot()].slice(-HISTORY_LIMIT);
+    restoreEditorSnapshot(previous);
+  }
+
+  function redoEditorChange() {
+    const next = redoStack.current.at(-1);
+    if (!next) return;
+    redoStack.current = redoStack.current.slice(0, -1);
+    undoStack.current = [...undoStack.current, editorSnapshot()].slice(-HISTORY_LIMIT);
+    restoreEditorSnapshot(next);
+  }
+
   function updateCandidatePosition() {
     const editor = editorRef.current;
     const textarea = inputRefs.current[activeLine];
@@ -666,6 +722,7 @@ export function App() {
 
   function commit(candidate = pagedCandidates[selected], suffix = "") {
     if (!candidate && !suffix) return;
+    pushUndoSnapshot();
     const remainingQuery = candidate?.kind !== "en" && !suffix ? remainingPinyinAfterLeadingCandidate(query, candidate.zh) : "";
     if (candidate?.kind !== "en" && query) {
       setUserDictionary((current) => {
@@ -717,6 +774,17 @@ export function App() {
   }
 
   function handleKeyDown(event) {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
+      event.preventDefault();
+      if (event.shiftKey) redoEditorChange();
+      else undoEditorChange();
+      return;
+    }
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "y") {
+      event.preventDefault();
+      redoEditorChange();
+      return;
+    }
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "a") {
       event.preventDefault();
       setQuery("");
@@ -731,6 +799,7 @@ export function App() {
     }
     if (allChineseSelected && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "x") {
       event.preventDefault();
+      pushUndoSnapshot();
       navigator.clipboard?.writeText(draftLines.join("\n"));
       setDraftLines([""]);
       setSoftBreaks([false]);
@@ -741,6 +810,7 @@ export function App() {
     }
     if (allChineseSelected && (event.key === "Backspace" || event.key === "Delete")) {
       event.preventDefault();
+      pushUndoSnapshot();
       setDraftLines([""]);
       setSoftBreaks([false]);
       setAllChineseSelected(false);
@@ -793,6 +863,7 @@ export function App() {
     }
     else if (event.key === "Enter" && !query) {
       event.preventDefault();
+      pushUndoSnapshot();
       const editor = inputRefs.current[activeLine];
       const currentLine = draftLines[activeLine] ?? "";
       const start = editor?.selectionStart ?? currentLine.length;
@@ -823,12 +894,14 @@ export function App() {
     else if (event.key === "Backspace" && query) {
       event.preventDefault();
       if (queryCursor > 0) {
+        pushUndoSnapshot();
         setQuery((current) => `${current.slice(0, queryCursor - 1)}${current.slice(queryCursor)}`);
         setQueryCursor((current) => Math.max(0, current - 1));
       }
     }
     else if (event.key === "Delete" && query) {
       event.preventDefault();
+      pushUndoSnapshot();
       setQuery((current) => `${current.slice(0, queryCursor)}${current.slice(queryCursor + 1)}`);
     }
     else if (event.key === "Backspace" && !query && activeLine > 0) {
@@ -837,6 +910,7 @@ export function App() {
       const end = editor?.selectionEnd ?? start;
       if (start === 0 && end === 0) {
         event.preventDefault();
+        pushUndoSnapshot();
         const previousLine = activeLine - 1;
         const previousLength = draftLines[previousLine]?.length ?? 0;
         setDraftLines((current) => {
@@ -861,6 +935,7 @@ export function App() {
       const end = editor?.selectionEnd ?? start;
       if (start === currentLine.length && end === currentLine.length) {
         event.preventDefault();
+        pushUndoSnapshot();
         setDraftLines((current) => {
           const next = [...current];
           next[activeLine] = `${next[activeLine] ?? ""}${next[activeLine + 1] ?? ""}`;
@@ -877,6 +952,7 @@ export function App() {
     }
     else if (event.key === "Backspace" && !query && !draftLines[activeLine] && draftLines.length > 1) {
       event.preventDefault();
+      pushUndoSnapshot();
       const previousLine = Math.max(0, activeLine - 1);
       setDraftLines((current) => current.filter((_, index) => index !== activeLine));
       setSoftBreaks((current) => current.filter((_, index) => index !== activeLine));
@@ -885,6 +961,7 @@ export function App() {
     }
     else if (/^[a-z]$/i.test(event.key) && !event.metaKey && !event.ctrlKey && !event.altKey) {
       event.preventDefault();
+      pushUndoSnapshot();
       const letter = event.key;
       setQuery((current) => `${current.slice(0, queryCursor)}${letter}${current.slice(queryCursor)}`);
       setQueryCursor((current) => current + 1);
@@ -895,6 +972,8 @@ export function App() {
     setAllChineseSelected(false);
     const next = event.target.value;
     const previous = draftLines[lineIndex] ?? "";
+    if (next === previous) return;
+    pushUndoSnapshot();
     const change = insertedTextChange(previous, next);
     const isCompositionInput = /^[a-z=-]+$/i.test(change.inserted);
     if (!isCompositionInput) {
