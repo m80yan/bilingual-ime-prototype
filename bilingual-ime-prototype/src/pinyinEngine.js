@@ -144,7 +144,8 @@ function segmentedCandidatePaths(input, limit) {
 }
 
 function pinyinIndexCandidates(input) {
-  const glossaryEntries = domainGlossaryPinyinIndex[normalizeGlossaryPinyin(input)] ?? [];
+  const glossaryEntries = (domainGlossaryPinyinIndex[normalizeGlossaryPinyin(input)] ?? [])
+    .filter((entry) => entry.status !== "pending_review" || shouldUsePendingReview(input));
   const dictEntries = isCompletePinyinSequence(input) ? rankedDictEntries(input, 4) : [];
   return [
     ...glossaryEntries.map((entry) => ({ text: entry.zh, score: 100000 + entry.zh.length * 100 })),
@@ -154,6 +155,10 @@ function pinyinIndexCandidates(input) {
 
 function isCompletePinyinSequence(input) {
   return splitIntoSyllables(input).join("") === input;
+}
+
+function shouldUsePendingReview(input) {
+  return input.length >= 6 && isCompletePinyinSequence(input);
 }
 
 function stablePrefixCandidates(input, limit) {
@@ -288,9 +293,10 @@ function mixedCandidates(input, limit) {
   return unique(matches, limit);
 }
 
-function domainGlossaryCandidates(input, limit) {
+function domainGlossaryCandidates(input, limit, { includePendingReview = false } = {}) {
   return unique(
     (domainGlossaryPinyinIndex[normalizeGlossaryPinyin(input)] ?? [])
+      .filter((entry) => entry.status !== "pending_review" || includePendingReview)
       .map((entry) => entry.zh),
     limit,
   );
@@ -303,6 +309,7 @@ export function getPinyinCandidates(value, limit = 25) {
 
   const shortcut = shortcutCandidates[input] ?? shortcutCandidates[spacedInput.replace(/[^a-z]/g, "")] ?? [];
   const glossary = domainGlossaryCandidates(input, limit);
+  const pendingGlossary = shouldUsePendingReview(input) ? domainGlossaryCandidates(input, limit, { includePendingReview: true }) : [];
   const preferred = preferredSyllableCandidates[input] ?? [];
   const matches = dict[input]
     ? dict[input]
@@ -320,20 +327,20 @@ export function getPinyinCandidates(value, limit = 25) {
   const leading = leadingSyllableCandidates(input, limit);
   const prefix = prefixSyllableCandidates(input, limit);
   const fuzzy = fuzzyCandidates(input, limit);
-  if (dict[input]) return unique([...shortcut, ...glossary, ...preferred, ...exact.slice(0, 1), ...fuzzy, ...prefix, ...leading, ...exact.slice(1), ...associated], limit);
+  if (dict[input]) return unique([...shortcut, ...glossary, ...preferred, ...exact.slice(0, 1), ...pendingGlossary, ...fuzzy, ...prefix, ...leading, ...exact.slice(1), ...associated], limit);
 
   if (input.length >= 12) {
-    if (glossary.length) {
-      return unique([...shortcut, ...glossary, ...mixedCandidates(input, limit), ...stablePrefixCandidates(input, limit), ...fuzzy, ...prefix], limit);
+    if (glossary.length || pendingGlossary.length) {
+      return unique([...shortcut, ...glossary, ...pendingGlossary, ...mixedCandidates(input, limit), ...stablePrefixCandidates(input, limit), ...fuzzy, ...prefix], limit);
     }
     const segmented = segmentedCandidatePaths(input, limit)
       .filter((path) => path.segments <= 6 && path.singleChars <= 2)
       .map((path) => path.text);
     const composed = composedLongCandidates(input, limit);
-    return unique([...shortcut, ...glossary, ...mixedCandidates(input, limit), ...composed.slice(0, 2), ...stablePrefixCandidates(input, limit), ...fuzzy, ...prefix, ...segmented], limit);
+    return unique([...shortcut, ...glossary, ...pendingGlossary, ...mixedCandidates(input, limit), ...composed.slice(0, 2), ...stablePrefixCandidates(input, limit), ...fuzzy, ...prefix, ...segmented], limit);
   }
 
-  return unique([...shortcut, ...glossary, ...preferred, ...mixedCandidates(input, limit), ...fuzzy, ...prefix, ...composedLongCandidates(input, limit), ...leading, ...exact, ...associated, ...direct, ...segmentedCandidates(input, limit)], limit);
+  return unique([...shortcut, ...glossary, ...preferred, ...mixedCandidates(input, limit), ...fuzzy, ...prefix, ...composedLongCandidates(input, limit), ...leading, ...exact, ...associated, ...direct, ...segmentedCandidates(input, limit), ...pendingGlossary], limit);
 }
 
 export function remainingPinyinAfterLeadingCandidate(value, candidate) {

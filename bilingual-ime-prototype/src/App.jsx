@@ -55,6 +55,7 @@ const seedGlossaryEntries = domainGlossarySeedEntries.map((entry) => ({
   en: entry.en,
   ja: entry.ja,
   domain: entry.domain,
+  status: entry.status,
   locked: true,
 }));
 const domainContextHints = {
@@ -292,6 +293,9 @@ function rankWithUserDictionary(candidates, pinyin, dictionary, glossary, contex
       const learnedEntry = learned[zh];
       const baseScore = Math.max(0, 100 - index * 3);
       const userScore = Math.min(60, (learnedEntry?.count ?? 0) * 16);
+      const glossaryBoost = glossaryEntry
+        ? glossaryEntryWeight(glossaryEntry) * (glossaryEntry.status === "pending_review" ? 0.08 : 0.45) + (domainBoosts[glossaryEntry.domain] ?? 0)
+        : 0;
       return {
         zh,
         index,
@@ -299,7 +303,7 @@ function rankWithUserDictionary(candidates, pinyin, dictionary, glossary, contex
           + userScore
           + recencyScore(learnedEntry?.lastUsedAt)
           + contextBoost(zh, context)
-          + (glossaryEntry ? glossaryEntryWeight(glossaryEntry) * 0.45 + (domainBoosts[glossaryEntry.domain] ?? 0) : 0),
+          + glossaryBoost,
       };
     })
     .sort((left, right) => {

@@ -68,6 +68,21 @@ const candidateRankingCases = [
     expectedIncludes: ["伤害"],
   },
   {
+    input: "shang",
+    expectedTop: "上",
+    forbiddenTopFive: ["上尉", "上船", "上市公司"],
+  },
+  {
+    input: "shangwei",
+    expectedTop: "尚未",
+    expectedIncludes: ["上尉"],
+  },
+  {
+    input: "jun",
+    expectedTop: "均",
+    forbiddenTopFive: ["军舰", "军队", "军官"],
+  },
+  {
     input: "zongguo",
     expectedTop: "中国",
   },
