@@ -406,6 +406,20 @@ export function App() {
     return language === "en" ? "…" : "翻訳中…";
   }
 
+  function punctuatedTranslationFromBase(zh, language, entries) {
+    const { body, punctuation } = splitFinalPunctuation(zh);
+    if (body === zh || !isChineseText(body)) return null;
+    const baseTranslation = entries[translationPatchKey(language, translationStyle, body)]
+      ?? entries[translationCacheKey(language, translationStyle, body, "final")]
+      ?? entries[translationCacheKey(language, translationStyle, body)]
+      ?? entries[`${language}:${body}`]
+      ?? userGlossaryTranslation(body, language, userGlossary)
+      ?? localTranslations[body]?.[language]
+      ?? (language === "en" && cedictTranslations[body]?.length ? cedictTranslations[body].join("; ") : null);
+    if (!baseTranslation || baseTranslation === "…" || baseTranslation === "翻訳中…") return null;
+    return `${baseTranslation.replace(/[.!?。！？]$/, "")}${targetPunctuation(punctuation, language)}`;
+  }
+
   const rankedChineseCandidates = useMemo(() => {
     const context = draftLines.join("");
     const pinyinLimit = query.length <= 6 ? SHORT_PINYIN_CANDIDATE_LIMIT : DEFAULT_PINYIN_CANDIDATE_LIMIT;
@@ -503,7 +517,8 @@ export function App() {
       .filter((instance) => instance.isFinal)
       .filter(({ frozenKey }) => !translations[frozenKey]);
     const existingFinalEntries = pendingFinalInstances.flatMap(({ zh, frozenKey }) => {
-      const existingTranslation = translations[translationCacheKey(secondaryLanguage, translationStyle, zh, "final")]
+      const existingTranslation = punctuatedTranslationFromBase(zh, secondaryLanguage, translations)
+        ?? translations[translationCacheKey(secondaryLanguage, translationStyle, zh, "final")]
         ?? translations[translationCacheKey(secondaryLanguage, translationStyle, zh)]
         ?? translations[`${secondaryLanguage}:${zh}`]
         ?? userGlossaryTranslation(zh, secondaryLanguage, userGlossary)
