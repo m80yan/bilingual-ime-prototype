@@ -6,7 +6,7 @@ button { color: inherit; }
 .input-stage { position: relative; display: grid; place-items: center; width: max(100vw, 1112px); min-height: max(100vh, 654px); padding: 67px; overflow: hidden; background: #fafafa; }
 .ime-window { position: relative; display: grid; grid-template-rows: 44px minmax(0, 1fr) 36px; min-width: 800px; min-height: 450px; background: #fff; border: 1px solid #e5e5e5; }
 .ime-header { position: relative; background: #f1f1f1; border-bottom: 1px solid #ebebeb; }
-.header-controls { position: absolute; inset: 8px auto auto 8px; display: flex; align-items: center; gap: 16px; width: 374px; height: 28px; }
+.header-controls { position: absolute; inset: 8px auto auto 15px; display: flex; align-items: center; gap: 16px; width: 374px; height: 28px; }
 .language-combo { position: relative; z-index: 2; width: 114px; }.secondary-combo { top: auto; }
 .language-control { display: flex; align-items: center; justify-content: space-between; width: 114px; height: 28px; padding: 0 9px 0 8px; border: 1px solid #aaa; background: #f1f1f1; font-size: 12px; font-weight: 700; text-align: left; cursor: pointer; }
 .style-combo, .style-control { width: 96px; }.style-list { width: 132px; }
