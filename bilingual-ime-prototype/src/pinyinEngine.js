@@ -56,6 +56,40 @@ function leadingSyllableCandidates(input, limit) {
   );
 }
 
+function leadingSingleCharCandidates(input, limit) {
+  const syllables = splitIntoSyllables(input);
+  if (syllables.length < 2) return [];
+  return unique(
+    (dict[syllables[0]] ?? [])
+      .slice()
+      .sort((left, right) => right.f - left.f)
+      .map((item) => item.w)
+      .filter((word) => word.length === 1),
+    limit,
+  );
+}
+
+function shorterLeadingSingleCharCandidates(input, limit) {
+  const syllables = splitIntoSyllables(input);
+  const firstSyllable = syllables[0];
+  if (!firstSyllable || input.length <= firstSyllable.length) return [];
+
+  const shorterPrefixes = [];
+  for (let end = firstSyllable.length - 1; end >= 1; end -= 1) {
+    const prefix = input.slice(0, end);
+    if (syllableKeys.has(prefix)) shorterPrefixes.push(prefix);
+  }
+
+  return unique(
+    shorterPrefixes.flatMap((prefix) => (dict[prefix] ?? [])
+      .slice()
+      .sort((left, right) => right.f - left.f)
+      .map((item) => item.w)
+      .filter((word) => word.length === 1)),
+    limit,
+  );
+}
+
 function fuzzySyllableVariants(syllable) {
   const variants = new Set([syllable]);
 
@@ -325,22 +359,24 @@ export function getPinyinCandidates(value, limit = 25) {
   const exact = dict[input] ? direct : [];
   const associated = dict[input] ? associatedPrefixCandidates(input, exact, limit) : [];
   const leading = leadingSyllableCandidates(input, limit);
+  const leadingSingles = leadingSingleCharCandidates(input, limit);
+  const shorterLeadingSingles = shorterLeadingSingleCharCandidates(input, limit);
   const prefix = prefixSyllableCandidates(input, limit);
   const fuzzy = fuzzyCandidates(input, limit);
-  if (dict[input]) return unique([...shortcut, ...glossary, ...preferred, ...exact.slice(0, 1), ...pendingGlossary, ...fuzzy, ...prefix, ...leading, ...exact.slice(1), ...associated], limit);
+  if (dict[input]) return unique([...shortcut, ...glossary, ...preferred, ...exact.slice(0, 1), ...pendingGlossary, ...fuzzy, ...prefix, ...leading, ...leadingSingles, ...shorterLeadingSingles, ...exact.slice(1), ...associated], limit);
 
   if (input.length >= 12) {
     if (glossary.length || pendingGlossary.length) {
-      return unique([...shortcut, ...glossary, ...pendingGlossary, ...mixedCandidates(input, limit), ...stablePrefixCandidates(input, limit), ...fuzzy, ...prefix], limit);
+      return unique([...shortcut, ...glossary, ...pendingGlossary, ...mixedCandidates(input, limit), ...stablePrefixCandidates(input, limit), ...fuzzy, ...prefix, ...leadingSingles, ...shorterLeadingSingles], limit);
     }
     const segmented = segmentedCandidatePaths(input, limit)
       .filter((path) => path.segments <= 6 && path.singleChars <= 2)
       .map((path) => path.text);
     const composed = composedLongCandidates(input, limit);
-    return unique([...shortcut, ...glossary, ...pendingGlossary, ...mixedCandidates(input, limit), ...composed.slice(0, 2), ...stablePrefixCandidates(input, limit), ...fuzzy, ...prefix, ...segmented], limit);
+    return unique([...shortcut, ...glossary, ...pendingGlossary, ...mixedCandidates(input, limit), ...composed.slice(0, 2), ...stablePrefixCandidates(input, limit), ...fuzzy, ...prefix, ...leadingSingles, ...shorterLeadingSingles, ...segmented], limit);
   }
 
-  return unique([...shortcut, ...glossary, ...preferred, ...mixedCandidates(input, limit), ...fuzzy, ...prefix, ...composedLongCandidates(input, limit), ...leading, ...exact, ...associated, ...direct, ...segmentedCandidates(input, limit), ...pendingGlossary], limit);
+  return unique([...shortcut, ...glossary, ...preferred, ...mixedCandidates(input, limit), ...fuzzy, ...prefix, ...leadingSingles, ...shorterLeadingSingles, ...composedLongCandidates(input, limit), ...leading, ...exact, ...associated, ...direct, ...segmentedCandidates(input, limit), ...pendingGlossary], limit);
 }
 
 export function remainingPinyinAfterLeadingCandidate(value, candidate) {

@@ -41,7 +41,8 @@ const punctuationMap = {
   "/": "、",
   "\\": "、",
 };
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 7;
+const MAX_CANDIDATE_PAGES = 7;
 const SHORT_PINYIN_CANDIDATE_LIMIT = 80;
 const DEFAULT_PINYIN_CANDIDATE_LIMIT = 25;
 const USER_DICTIONARY_KEY = "ime:user-dictionary";
@@ -476,8 +477,10 @@ export function App() {
       ja: candidate.kind === "en" ? "英語" : undefined,
     }));
   }, [query, rankedChineseCandidates]);
-  const pageCount = Math.max(1, Math.ceil(visibleCandidates.length / PAGE_SIZE));
-  const pagedCandidates = visibleCandidates.slice(candidatePage * PAGE_SIZE, candidatePage * PAGE_SIZE + PAGE_SIZE);
+  const visibleCandidateLimit = PAGE_SIZE * MAX_CANDIDATE_PAGES;
+  const limitedVisibleCandidates = visibleCandidates.slice(0, visibleCandidateLimit);
+  const pageCount = Math.max(1, Math.ceil(limitedVisibleCandidates.length / PAGE_SIZE));
+  const pagedCandidates = limitedVisibleCandidates.slice(candidatePage * PAGE_SIZE, candidatePage * PAGE_SIZE + PAGE_SIZE);
   const selectedCandidate = pagedCandidates[selected];
   const footerLanguageLabel = secondaryLanguage === "ja" ? "Japanese" : "English";
 
@@ -974,7 +977,7 @@ export function App() {
         updateCandidatePosition();
       });
     }
-    else if (/^[1-5]$/.test(event.key) && pagedCandidates[Number(event.key) - 1]) { event.preventDefault(); commit(pagedCandidates[Number(event.key) - 1]); }
+    else if (/^[1-7]$/.test(event.key) && pagedCandidates[Number(event.key) - 1]) { event.preventDefault(); commit(pagedCandidates[Number(event.key) - 1]); }
     else if (punctuationMap[event.key]) { event.preventDefault(); commit(query ? pagedCandidates[selected] : null, punctuationMap[event.key]); }
     else if (event.key === "Backspace" && query) {
       event.preventDefault();
