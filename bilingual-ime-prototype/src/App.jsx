@@ -1190,6 +1190,7 @@ export function App() {
                   autoFocus
                   className="translation-edit"
                   defaultValue={editingTranslation.value}
+                  style={{ width: `min(${Math.max(24, editingTranslation.value.length + 2)}ch, calc(100vw - 48px))` }}
                   onBlur={(event) => saveTranslationPatch(editingTranslation, event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
