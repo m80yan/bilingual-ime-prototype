@@ -13,6 +13,9 @@ const allowedDomains = new Set([
   "education",
   "business",
   "technology",
+  "medical",
+  "military",
+  "marine",
   "general",
 ]);
 const highPriorityFeedbackTags = new Set(["terminology_error", "tone_mismatch"]);
@@ -118,7 +121,7 @@ export default async function handler(request, response) {
     "Do not include generic single characters, ordinary function words, or full sentences unless the full phrase is a reusable fixed expression.",
     "Do not duplicate existing terms.",
     "Return only a JSON array. Each item must have: zh, pinyin, en, ja, domain, weight, reason, source, feedbackTags.",
-    "Use lowercase pinyin with no tone marks and no spaces. Use domain from this list: design-uiux, internet-slang, history, history-politics, place, auto, ui, movie, device, education, business, technology, general.",
+    "Use lowercase pinyin with no tone marks and no spaces. Use domain from this list: design-uiux, internet-slang, history, history-politics, place, auto, ui, movie, device, education, business, technology, medical, military, marine, general.",
     "Use weight from 50 to 130. Higher means more important for candidate ranking.",
     `Return at most ${maxSuggestions} items.`,
     `Existing terms to avoid: ${JSON.stringify(existingTerms)}`,

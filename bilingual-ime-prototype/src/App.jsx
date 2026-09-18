@@ -47,7 +47,7 @@ const USER_TRANSLATION_PATCHES_KEY = "ime:user-translation-patches";
 const USER_LEARNING_HALF_LIFE_MS = 1000 * 60 * 60 * 24 * 7;
 const HISTORY_LIMIT = 80;
 const emptyGlossaryDraft = { zh: "", pinyin: "", en: "", ja: "", domain: "common" };
-const glossarySuggestionDomains = new Set(["design-uiux", "internet-slang", "history", "history-politics", "place", "auto", "ui", "movie", "device", "education", "business", "technology", "general"]);
+const glossarySuggestionDomains = new Set(["design-uiux", "internet-slang", "history", "history-politics", "place", "auto", "ui", "movie", "device", "education", "business", "technology", "medical", "military", "marine", "general"]);
 const highPriorityFeedbackTags = new Set(["terminology_error", "tone_mismatch"]);
 const seedGlossaryEntries = domainGlossarySeedEntries.map((entry) => ({
   zh: entry.zh,

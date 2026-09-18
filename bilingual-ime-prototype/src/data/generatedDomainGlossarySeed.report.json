@@ -1,0 +1,323 @@
+{
+  "generatedAt": "2026-09-18T05:47:31.692Z",
+  "limit": 5000,
+  "sourceCounts": {
+    "pinyinTerms": 411523,
+    "cedictTerms": 108319,
+    "thuoclTerms": 51250,
+    "keywordTerms": 4010,
+    "generatedEntries": 5000
+  },
+  "byDomain": {
+    "general": 1465,
+    "military": 428,
+    "marine": 360,
+    "business": 1095,
+    "place": 1,
+    "auto": 196,
+    "technology": 664,
+    "medical": 791
+  },
+  "samples": [
+    {
+      "zh": "版权",
+      "pinyin": "banquan",
+      "en": "copyright",
+      "ja": "",
+      "domain": "general",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "一战",
+      "pinyin": "yizhan",
+      "en": "World War I",
+      "ja": "",
+      "domain": "military",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "三军",
+      "pinyin": "sanjun",
+      "en": "upper, middle and lower army; army of right, center and left",
+      "ja": "",
+      "domain": "military",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "上尉",
+      "pinyin": "shangwei",
+      "en": "captain",
+      "ja": "",
+      "domain": "military",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "上船",
+      "pinyin": "shangchuan",
+      "en": "to get on the boat",
+      "ja": "",
+      "domain": "marine",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "下海",
+      "pinyin": "xiahai",
+      "en": "to go out to sea; to enter the sea",
+      "ja": "",
+      "domain": "marine",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "下锚",
+      "pinyin": "xiamao",
+      "en": "to drop anchor",
+      "ja": "",
+      "domain": "marine",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "中尉",
+      "pinyin": "zhongwei",
+      "en": "lieutenant; first lieutenant",
+      "ja": "",
+      "domain": "military",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "中弹",
+      "pinyin": "zhongdan",
+      "en": "to get hit by a bullet; to get shot",
+      "ja": "",
+      "domain": "military",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "中枪",
+      "pinyin": "zhongqiang",
+      "en": "to be hit by a gun; shot",
+      "ja": "",
+      "domain": "military",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "乘船",
+      "pinyin": "chengchuan",
+      "en": "to embark; to travel by ship",
+      "ja": "",
+      "domain": "marine",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "二战",
+      "pinyin": "erzhan",
+      "en": "World War II",
+      "ja": "",
+      "domain": "military",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "交战",
+      "pinyin": "jiaozhan",
+      "en": "to fight; to wage war",
+      "ja": "",
+      "domain": "military",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "休战",
+      "pinyin": "xiuzhan",
+      "en": "armistice",
+      "ja": "",
+      "domain": "military",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "作战",
+      "pinyin": "zuozhan",
+      "en": "combat; to fight",
+      "ja": "",
+      "domain": "military",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "俄军",
+      "pinyin": "ejun",
+      "en": "Russian army",
+      "ja": "",
+      "domain": "military",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "倭军",
+      "pinyin": "wojun",
+      "en": "Japanese army",
+      "ja": "",
+      "domain": "military",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "停战",
+      "pinyin": "tingzhan",
+      "en": "to cease fire; to stop fighting; armistice; truce",
+      "ja": "",
+      "domain": "military",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "伪军",
+      "pinyin": "weijun",
+      "en": "puppet army",
+      "ja": "",
+      "domain": "military",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "备战",
+      "pinyin": "beizhan",
+      "en": "to prepare for war; to prepare intensively for a competition, examination etc",
+      "ja": "",
+      "domain": "military",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "元军",
+      "pinyin": "yuanjun",
+      "en": "Mongol army; army of Yuan dynasty",
+      "ja": "",
+      "domain": "military",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "内战",
+      "pinyin": "neizhan",
+      "en": "civil war",
+      "ja": "",
+      "domain": "military",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "内海",
+      "pinyin": "neihai",
+      "en": "inland sea; internal sea",
+      "ja": "",
+      "domain": "marine",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "全军",
+      "pinyin": "quanjun",
+      "en": "whole army",
+      "ja": "",
+      "domain": "military",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "公海",
+      "pinyin": "gonghai",
+      "en": "the high seas; international waters",
+      "ja": "",
+      "domain": "marine",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "兵船",
+      "pinyin": "bingchuan",
+      "en": "man-of-war; naval vessel",
+      "ja": "",
+      "domain": "marine",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "冷战",
+      "pinyin": "lengzhan",
+      "en": "Cold War",
+      "ja": "",
+      "domain": "military",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "出战",
+      "pinyin": "chuzhan",
+      "en": "to go off to war; to compete",
+      "ja": "",
+      "domain": "military",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "出海",
+      "pinyin": "chuhai",
+      "en": "to go out to sea; to expand into overseas markets",
+      "ja": "",
+      "domain": "marine",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    },
+    {
+      "zh": "出港",
+      "pinyin": "chugang",
+      "en": "to leave harbor; departure",
+      "ja": "",
+      "domain": "marine",
+      "weight": 80,
+      "status": "pending_review",
+      "source": "THUOCL+phrase-pinyin-data+CC-CEDICT"
+    }
+  ]
+}

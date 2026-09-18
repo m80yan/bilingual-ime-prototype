@@ -1,7 +1,9 @@
+import generatedDomainGlossarySeedEntries from "./generatedDomainGlossarySeed.json" with { type: "json" };
+
 // Reviewed seed terms for the in-browser editable glossary and backend guidance.
 // Keep this list compact: it should improve candidate quality for product demos,
 // not become a general dictionary.
-export const domainGlossarySeedEntries = [
+const reviewedDomainGlossarySeedEntries = [
   { zh: "设计", pinyin: "sheji", en: "design", ja: "デザイン", domain: "design-uiux", status: "reviewed" },
   { zh: "设计师", pinyin: "shejishi", en: "designer", ja: "デザイナー", domain: "design-uiux", status: "reviewed" },
   { zh: "产品设计", pinyin: "chanpinsheji", en: "product design", ja: "プロダクトデザイン", domain: "design-uiux", status: "reviewed" },
@@ -55,6 +57,11 @@ export const domainGlossarySeedEntries = [
   { zh: "华为Mate70Pro", pinyin: "huaweimateqilingpro", en: "Huawei Mate 70 Pro", ja: "Huawei Mate 70 Pro", domain: "device", aliases: ["华为 Mate 70 Pro"], status: "reviewed" },
 ];
 
+export const domainGlossarySeedEntries = [
+  ...reviewedDomainGlossarySeedEntries,
+  ...generatedDomainGlossarySeedEntries,
+];
+
 const domainDefaultWeights = {
   "design-uiux": 95,
   "internet-slang": 92,
@@ -62,6 +69,10 @@ const domainDefaultWeights = {
   "history-politics": 86,
   place: 84,
   auto: 90,
+  business: 84,
+  marine: 84,
+  medical: 84,
+  military: 84,
   ui: 88,
   movie: 88,
   device: 88,
