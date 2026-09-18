@@ -71,6 +71,11 @@ const candidateRankingCases = [
     expectedTop: "先",
     expectedIncludes: ["西安"],
   },
+  {
+    input: "yilingci",
+    expectedTop: "衣领",
+    expectedIncludes: ["一"],
+  },
 ];
 
 for (const testCase of candidateRankingCases) {
@@ -102,6 +107,16 @@ const remainingPinyinCases = [
     input: "xili",
     candidate: "西",
     expected: "li",
+  },
+  {
+    input: "yilingci",
+    candidate: "一",
+    expected: "lingci",
+  },
+  {
+    input: "yiliangcile",
+    candidate: "一两",
+    expected: "cile",
   },
 ];
 

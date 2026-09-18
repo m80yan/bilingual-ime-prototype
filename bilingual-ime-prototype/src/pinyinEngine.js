@@ -175,6 +175,23 @@ function stablePrefixCandidates(input, limit) {
     .slice(0, limit);
 }
 
+function prefixSyllableCandidates(input, limit) {
+  const syllables = splitIntoSyllables(input);
+  if (syllables.length < 2) return [];
+
+  const prefixes = [];
+  for (let length = Math.min(4, syllables.length - 1); length >= 1; length -= 1) {
+    const prefix = syllables.slice(0, length).join("");
+    prefixes.push(
+      ...(preferredSyllableCandidates[prefix] ?? []),
+      ...domainGlossaryCandidates(prefix, limit),
+      ...rankedDictEntries(prefix, 6).map((entry) => entry.w),
+    );
+  }
+
+  return unique(prefixes, limit);
+}
+
 function composedLongCandidates(input, limit) {
   const paths = [];
   const stablePrefixes = [];
@@ -301,21 +318,22 @@ export function getPinyinCandidates(value, limit = 25) {
   const exact = dict[input] ? direct : [];
   const associated = dict[input] ? associatedPrefixCandidates(input, exact, limit) : [];
   const leading = leadingSyllableCandidates(input, limit);
+  const prefix = prefixSyllableCandidates(input, limit);
   const fuzzy = fuzzyCandidates(input, limit);
-  if (dict[input]) return unique([...shortcut, ...glossary, ...preferred, ...exact.slice(0, 1), ...leading, ...exact.slice(1), ...associated, ...fuzzy], limit);
+  if (dict[input]) return unique([...shortcut, ...glossary, ...preferred, ...exact.slice(0, 1), ...fuzzy, ...prefix, ...leading, ...exact.slice(1), ...associated], limit);
 
   if (input.length >= 12) {
     if (glossary.length) {
-      return unique([...shortcut, ...glossary, ...mixedCandidates(input, limit), ...stablePrefixCandidates(input, limit), ...fuzzy], limit);
+      return unique([...shortcut, ...glossary, ...mixedCandidates(input, limit), ...stablePrefixCandidates(input, limit), ...fuzzy, ...prefix], limit);
     }
     const segmented = segmentedCandidatePaths(input, limit)
       .filter((path) => path.segments <= 6 && path.singleChars <= 2)
       .map((path) => path.text);
     const composed = composedLongCandidates(input, limit);
-    return unique([...shortcut, ...glossary, ...mixedCandidates(input, limit), ...composed.slice(0, 2), ...stablePrefixCandidates(input, limit), ...fuzzy, ...segmented], limit);
+    return unique([...shortcut, ...glossary, ...mixedCandidates(input, limit), ...composed.slice(0, 2), ...stablePrefixCandidates(input, limit), ...fuzzy, ...prefix, ...segmented], limit);
   }
 
-  return unique([...shortcut, ...glossary, ...preferred, ...mixedCandidates(input, limit), ...fuzzy, ...composedLongCandidates(input, limit), ...leading, ...exact, ...associated, ...direct, ...segmentedCandidates(input, limit)], limit);
+  return unique([...shortcut, ...glossary, ...preferred, ...mixedCandidates(input, limit), ...fuzzy, ...prefix, ...composedLongCandidates(input, limit), ...leading, ...exact, ...associated, ...direct, ...segmentedCandidates(input, limit)], limit);
 }
 
 export function remainingPinyinAfterLeadingCandidate(value, candidate) {
@@ -326,9 +344,9 @@ export function remainingPinyinAfterLeadingCandidate(value, candidate) {
   for (let length = syllables.length - 1; length >= 1; length -= 1) {
     const prefix = syllables.slice(0, length).join("");
     const prefixCandidates = unique([
+      ...(preferredSyllableCandidates[prefix] ?? []),
       ...domainGlossaryCandidates(prefix, 25),
       ...rankedDictEntries(prefix, 8).map((entry) => entry.w),
-      ...segmentedCandidatePaths(prefix, 12).map((path) => path.text),
     ], 25);
     if (prefixCandidates.includes(candidate)) return syllables.slice(length).join("");
   }
