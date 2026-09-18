@@ -38,6 +38,8 @@ const punctuationMap = {
   "\\": "、",
 };
 const PAGE_SIZE = 5;
+const SHORT_PINYIN_CANDIDATE_LIMIT = 80;
+const DEFAULT_PINYIN_CANDIDATE_LIMIT = 25;
 const USER_DICTIONARY_KEY = "ime:user-dictionary";
 const USER_GLOSSARY_KEY = "ime:domain-glossary";
 const MISSED_QUERIES_KEY = "ime:missed-queries";
@@ -406,8 +408,9 @@ export function App() {
 
   const rankedChineseCandidates = useMemo(() => {
     const context = draftLines.join("");
+    const pinyinLimit = query.length <= 6 ? SHORT_PINYIN_CANDIDATE_LIMIT : DEFAULT_PINYIN_CANDIDATE_LIMIT;
     return rankWithUserDictionary(
-      [...userGlossaryCandidates(query, userGlossary), ...getPinyinCandidates(query)],
+      [...userGlossaryCandidates(query, userGlossary), ...getPinyinCandidates(query, pinyinLimit)],
       query,
       userDictionary,
       userGlossary,

@@ -120,10 +120,27 @@ const remainingPinyinCases = [
   },
 ];
 
+const extendedCandidateCases = [
+  {
+    input: "wei",
+    limit: 80,
+    expectedIncludes: ["尉"],
+  },
+];
+
 for (const testCase of remainingPinyinCases) {
   const actual = remainingPinyinAfterLeadingCandidate(testCase.input, testCase.candidate);
   if (actual !== testCase.expected) {
     failures.push(`${testCase.input}: expected remaining pinyin ${testCase.expected} after ${testCase.candidate}, got ${actual || "(empty)"}`);
+  }
+}
+
+for (const testCase of extendedCandidateCases) {
+  const candidates = getPinyinCandidates(testCase.input, testCase.limit);
+  for (const expected of testCase.expectedIncludes) {
+    if (!candidates.includes(expected)) {
+      failures.push(`${testCase.input}: expected extended candidates to include ${expected}`);
+    }
   }
 }
 
@@ -139,4 +156,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`IME corpus check passed: ${imeEvaluationCases.length} glossary cases, ${candidateRankingCases.length} ranking cases, ${remainingPinyinCases.length} continuation cases, ${domainGlossarySeedEntries.length} seed entries.`);
+console.log(`IME corpus check passed: ${imeEvaluationCases.length} glossary cases, ${candidateRankingCases.length} ranking cases, ${remainingPinyinCases.length} continuation cases, ${extendedCandidateCases.length} extended candidate cases, ${domainGlossarySeedEntries.length} seed entries.`);
