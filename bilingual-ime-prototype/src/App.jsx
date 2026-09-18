@@ -1290,6 +1290,7 @@ export function App() {
       const needsSpace = segmentIndex > 0;
       const isCompleteSegment = isFinalTranslationSegment(segment) || lineIndex < draftLines.length - 1;
       const showEditButton = isCompleteSegment
+        && lineIndex === activeLine
         && Boolean(playedTranslations[translationKey])
         && !loadingSegments[segment]
         && secondary !== "…"
@@ -1336,9 +1337,9 @@ export function App() {
                       title="Edit translation"
                       onClick={() => startEditingTranslation(segment, secondary)}
                     >
-                      <svg viewBox="0 0 12 12" aria-hidden="true">
-                        <path d="M2.1 8.8 2 10l1.2-.1 5.9-5.9-1.1-1.1-5.9 5.9Zm7.7-5.5.5-.5a.8.8 0 0 0 0-1.1.8.8 0 0 0-1.1 0l-.5.5 1.1 1.1Z" />
-                      </svg>
+                      <img className="edit-icon edit-icon-default" src="/assets/figma-edit-default.svg" alt="" />
+                      <img className="edit-icon edit-icon-hover" src="/assets/figma-edit-hover.svg" alt="" />
+                      <img className="edit-icon edit-icon-pressed" src="/assets/figma-edit-pressed.svg" alt="" />
                     </button>
                   )}
                 </span>}
