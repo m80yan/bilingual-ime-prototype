@@ -23,7 +23,6 @@ const secondaryLanguages = [
 const translationStyles = [
   { id: "daily", label: "Daily" },
   { id: "formal", label: "Formal" },
-  { id: "social", label: "Social" },
   { id: "technical", label: "Technical" },
 ];
 const punctuationMap = {

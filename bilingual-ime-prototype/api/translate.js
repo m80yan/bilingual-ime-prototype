@@ -5,9 +5,8 @@ const supportedLanguages = {
   ja: "natural Japanese",
 };
 const translationStyleInstructions = {
-  daily: "Style: daily. Use natural everyday wording that sounds like a fluent person writing normally.",
+  daily: "Style: daily. Use natural everyday wording that sounds like a fluent person writing normally. Keep rhetorical force and emotional color when the source needs it.",
   formal: "Style: formal. Use polished written language, avoid slang and contractions, and keep the tone suitable for work email or documentation.",
-  social: "Style: social media. Use concise, expressive, lively wording. Keep rhetorical force and emotional color; short punchy phrasing is preferred.",
   technical: "Style: technical documentation. Prioritize terminology accuracy, clear structure, concise sentences, and unambiguous wording.",
 };
 
