@@ -56,6 +56,10 @@ function polishTranslation(text, language) {
   return removeRepeatedSentences(normalizeTargetPunctuation(text, language)).trim();
 }
 
+function hasChinese(text) {
+  return /[\u3400-\u9fff]/.test(text);
+}
+
 function normalizeClientGlossary(entries, targetLanguage) {
   if (!Array.isArray(entries)) return [];
   const seen = new Set();
@@ -67,6 +71,7 @@ function normalizeClientGlossary(entries, targetLanguage) {
       source: entry.source === "user" ? "user" : "seed",
     }))
     .filter((entry) => entry.zh && entry.target && /[\u3400-\u9fff]/.test(entry.zh))
+    .filter((entry) => targetLanguage !== "en" || !hasChinese(entry.target))
     .filter((entry) => {
       const key = `${targetLanguage}:${entry.zh}:${entry.target}`;
       if (seen.has(key)) return false;
@@ -101,7 +106,8 @@ export default async function handler(request, response) {
   const glossary = phraseTranslations[targetLanguage] ?? {};
   const localResults = Object.fromEntries(texts
     .filter((text) => glossary[text])
-    .map((text) => [text, glossary[text]]));
+    .map((text) => [text, glossary[text]])
+    .filter(([, translation]) => targetLanguage !== "en" || !hasChinese(translation)));
   const remoteTexts = texts.filter((text) => !localResults[text]);
 
   if (!remoteTexts.length) return json(response, { translations: localResults });
@@ -167,9 +173,48 @@ export default async function handler(request, response) {
   try {
     const raw = outputText.replace(/^```json\s*|\s*```$/g, "");
     const result = JSON.parse(raw);
-    const translations = Object.fromEntries(remoteTexts
+    let translations = Object.fromEntries(remoteTexts
       .filter((text) => typeof result[text] === "string")
       .map((text) => [text, polishTranslation(result[text], targetLanguage)]));
+    const mixedEnglishEntries = targetLanguage === "en"
+      ? Object.entries(translations).filter(([, translation]) => hasChinese(translation))
+      : [];
+
+    if (mixedEnglishEntries.length) {
+      const repairPrompt = [
+        "Repair these Simplified Chinese to English translations.",
+        "Every value must be fluent natural English only. Do not leave any Chinese characters in the output.",
+        "Return only a JSON object using the same original Chinese keys.",
+        JSON.stringify(Object.fromEntries(mixedEnglishEntries)),
+      ].join("\n");
+      const repairResponse = await fetch("https://api.openai.com/v1/responses", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-5-nano",
+          reasoning: { effort: "minimal" },
+          input: [{ role: "user", content: [{ type: "input_text", text: repairPrompt }] }],
+          max_output_tokens: 120,
+        }),
+      });
+      if (repairResponse.ok) {
+        try {
+          const repairData = await repairResponse.json();
+          const repairRaw = readOutputText(repairData).replace(/^```json\s*|\s*```$/g, "");
+          const repairResult = JSON.parse(repairRaw);
+          translations = Object.fromEntries(Object.entries(translations).map(([text, translation]) => {
+            const repaired = typeof repairResult[text] === "string" ? polishTranslation(repairResult[text], targetLanguage) : translation;
+            return [text, hasChinese(repaired) ? translation : repaired];
+          }));
+        } catch {
+          console.warn("English translation repair response could not be read.");
+        }
+      }
+      translations = Object.fromEntries(Object.entries(translations).filter(([, translation]) => !hasChinese(translation)));
+    }
     return json(response, { translations: { ...localResults, ...translations } });
   } catch {
     console.error("OpenAI translation response could not be read", outputText);
