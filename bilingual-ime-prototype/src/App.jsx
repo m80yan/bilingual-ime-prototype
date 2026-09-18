@@ -1385,6 +1385,7 @@ export function App() {
           <div className="composition-editor" ref={editorRef}>
             <div className="written-lines" aria-live="polite" onScroll={updateCandidatePosition}>
               {draftLines.map((line, index) => {
+                const showEditorPlaceholder = index === 0 && !line && !(query && activeLine === index);
                 return (
                   <p className={[
                     "bilingual-line",
@@ -1401,11 +1402,12 @@ export function App() {
                       onKeyUp={updateCandidatePosition}
                       onClick={() => { setAllChineseSelected(false); updateCandidatePosition(); }}
                       onSelect={updateCandidatePosition}
-                      placeholder={index === 0 && !(query && activeLine === index) ? "输入中文\nEnglish appears below..." : ""}
+                      placeholder={showEditorPlaceholder ? "输入中文" : ""}
                       aria-label={`中文正文第 ${index + 1} 行`}
                       autoComplete="off"
                       spellCheck="false"
                     />
+                    {showEditorPlaceholder && <span className="secondary-line placeholder-secondary">English appears below...</span>}
                     {line && <span className="secondary-line">{renderSecondarySegments(line, index)}</span>}
                   </p>
                 );
