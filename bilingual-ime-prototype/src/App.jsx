@@ -1273,12 +1273,27 @@ export function App() {
     };
   }
 
+  function startEditingTranslation(segment, value) {
+    setEditingTranslation({
+      zh: segment,
+      language: secondaryLanguage,
+      style: translationStyle,
+      value,
+    });
+  }
+
   function renderSecondarySegments(line, lineIndex) {
     return splitChineseSegments(line).map((segment, segmentIndex) => {
       const secondary = unpunctuatedTranslationFromFinal(segment, secondaryLanguage, lineIndex, segmentIndex, translations)
         ?? translationFor(segment, secondaryLanguage, frozenFinalTranslationKey(secondaryLanguage, lineIndex, segmentIndex, segment));
       const translationKey = `${secondaryLanguage}:${lineIndex}:${segmentIndex}:${segment}:${secondary}`;
       const needsSpace = segmentIndex > 0;
+      const isCompleteSegment = isFinalTranslationSegment(segment) || lineIndex < draftLines.length - 1;
+      const showEditButton = isCompleteSegment
+        && Boolean(playedTranslations[translationKey])
+        && !loadingSegments[segment]
+        && secondary !== "…"
+        && secondary !== "翻訳中…";
 
       return (
         <span className="translation-segment" key={`${segment}-${segmentIndex}`}>
@@ -1306,18 +1321,26 @@ export function App() {
               : <span
                   className="translation-editable"
                   title="Double-click to edit translation"
-                  onDoubleClick={() => setEditingTranslation({
-                    zh: segment,
-                    language: secondaryLanguage,
-                    style: translationStyle,
-                    value: secondary,
-                  })}
+                  onDoubleClick={() => startEditingTranslation(segment, secondary)}
                 >
                   <StableTranslation
                     text={secondary}
                     hasPlayed={Boolean(playedTranslations[translationKey])}
                     onDone={() => setPlayedTranslations((current) => ({ ...current, [translationKey]: true }))}
                   />
+                  {showEditButton && (
+                    <button
+                      className="translation-edit-button"
+                      type="button"
+                      aria-label="Edit translation"
+                      title="Edit translation"
+                      onClick={() => startEditingTranslation(segment, secondary)}
+                    >
+                      <svg viewBox="0 0 12 12" aria-hidden="true">
+                        <path d="M2.1 8.8 2 10l1.2-.1 5.9-5.9-1.1-1.1-5.9 5.9Zm7.7-5.5.5-.5a.8.8 0 0 0 0-1.1.8.8 0 0 0-1.1 0l-.5.5 1.1 1.1Z" />
+                      </svg>
+                    </button>
+                  )}
                 </span>}
         </span>
       );
