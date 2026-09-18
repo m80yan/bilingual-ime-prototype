@@ -58,6 +58,11 @@ const candidateRankingCases = [
     expectedIncludes: ["西"],
   },
   {
+    input: "luoxuanjiang",
+    expectedTop: "螺旋桨",
+    expectedIncludes: ["螺旋"],
+  },
+  {
     input: "sanghai",
     expectedTop: "上海",
     expectedIncludes: ["伤害"],

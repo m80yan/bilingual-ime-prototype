@@ -449,8 +449,8 @@ export function App() {
   const visibleCandidates = useMemo(() => {
     const chineseCandidates = rankedChineseCandidates.map((zh) => ({ zh, kind: "zh" }));
     const shouldPrioritizeEnglish = /[A-Z]/.test(query);
-    const shouldOfferFallbackEnglish = shouldPrioritizeEnglish || !chineseCandidates.length || query.length <= 12;
-    const english = shouldOfferFallbackEnglish ? englishCandidate(query, chineseCandidates[0]?.zh) : properEnglishCandidate(chineseCandidates[0]?.zh);
+    const properEnglish = properEnglishCandidate(chineseCandidates[0]?.zh);
+    const english = shouldPrioritizeEnglish ? englishCandidate(query, chineseCandidates[0]?.zh) : properEnglish;
     const englishItem = english ? { zh: english, kind: "en" } : null;
     const matches = english
       ? shouldPrioritizeEnglish

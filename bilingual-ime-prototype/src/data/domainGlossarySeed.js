@@ -46,6 +46,7 @@ export const domainGlossarySeedEntries = [
   { zh: "车机系统", pinyin: "chejixitong", en: "in-car system", ja: "車載システム", domain: "auto", status: "reviewed" },
   { zh: "OTA升级", pinyin: "otashengji", en: "OTA update", ja: "OTAアップデート", domain: "auto", aliases: ["ota升级"], status: "reviewed" },
   { zh: "OTA", pinyin: "ota", en: "OTA", ja: "OTA", domain: "auto", status: "reviewed" },
+  { zh: "螺旋桨", pinyin: "luoxuanjiang", en: "propeller", ja: "プロペラ", domain: "technology", weight: 112, status: "reviewed" },
   { zh: "登录", pinyin: "denglu", en: "log in", ja: "ログインする", domain: "ui", aliases: ["登陆"], status: "reviewed" },
   { zh: "签到", pinyin: "qiandao", en: "sign in", ja: "チェックインする", domain: "ui", status: "reviewed" },
   { zh: "票房", pinyin: "piaofang", en: "box office", ja: "興行収入", domain: "movie", status: "reviewed" },
@@ -64,6 +65,7 @@ const domainDefaultWeights = {
   ui: 88,
   movie: 88,
   device: 88,
+  technology: 88,
   general: 80,
 };
 
