@@ -20,6 +20,10 @@ const secondaryLanguages = [
   { id: "en", label: "English" },
   { id: "ja", label: "日本語" },
 ];
+const secondaryPlaceholders = {
+  en: "English appears below...",
+  ja: "日本語訳が下に表示されます...",
+};
 const translationStyles = [
   { id: "daily", label: "Daily" },
   { id: "formal", label: "Formal" },
@@ -1409,7 +1413,11 @@ export function App() {
                       autoComplete="off"
                       spellCheck="false"
                     />
-                    {showEditorPlaceholder && <span className="secondary-line placeholder-secondary">English appears below...</span>}
+                    {showEditorPlaceholder && (
+                      <span className="secondary-line placeholder-secondary">
+                        {secondaryPlaceholders[secondaryLanguage]}
+                      </span>
+                    )}
                     {line && <span className="secondary-line">{renderSecondarySegments(line, index)}</span>}
                   </p>
                 );
