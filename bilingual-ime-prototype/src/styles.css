@@ -5,6 +5,7 @@ button, input, textarea { font: inherit; }
 button { color: inherit; }
 .input-stage { position: relative; display: grid; place-items: center; width: max(100vw, 1112px); min-height: max(100vh, 654px); padding: 67px; overflow: hidden; background: #fafafa; }
 .ime-window { position: relative; z-index: 1; display: grid; grid-template-rows: 44px minmax(0, 1fr) 36px; min-width: 800px; min-height: 450px; background: #fff; border: 1px solid #e5e5e5; }
+.ime-window::before { content: ""; position: absolute; inset: 0; z-index: -1; box-shadow: 0 8px 8px 0 rgb(0 0 0 / 50%); mix-blend-mode: overlay; pointer-events: none; }
 .window-gradient-bg { position: absolute; inset: 0; z-index: 0; display: block; width: 100%; height: 100%; pointer-events: none; }
 .ime-header { position: relative; background: #f1f1f1; border-bottom: 1px solid #ebebeb; }
 .header-controls { position: absolute; inset: 8px auto auto 15px; display: flex; align-items: center; gap: 16px; width: 374px; height: 28px; }
