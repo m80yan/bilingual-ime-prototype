@@ -10,6 +10,12 @@ const translationStyleInstructions = {
   technical: "Style: technical documentation. Use standard professional terminology, objective wording, concise structure, and unambiguous phrasing. Avoid literary flourish, rhetorical exaggeration, and ornamental vocabulary. Accuracy and precision outrank elegance.",
 };
 const terminologyPriorityInstruction = "Terminology accuracy has absolute priority over literal word-by-word translation. Before translating, identify domain-specific terms and use the accepted professional English term when one exists; never invent calques such as U-ship when the standard term is U-boat. This rule is mandatory for technical and formal styles and still preferred for daily style.";
+const properNounCache = new Map();
+const properNounCacheTtl = 24 * 60 * 60 * 1000;
+const landmarkSuffixPattern = /(宫殿|大厅|广场|博物馆|美术馆|音乐厅|歌剧院|体育场|机场|车站|大学|学院|公园|花园|宫|厅|馆|院|寺|塔|桥|城|山|湖|河|岛|港|区|街|路)$/;
+const commonProperNounFalsePositives = new Set(["工作", "用户", "产品", "设计", "界面", "体验", "输入", "输出", "中文", "英文", "日文", "翻译", "候选", "窗口", "文字", "内容", "句子", "词库", "模型", "大厅"]);
+let wikidataQueue = Promise.resolve();
+let lastWikidataRequestAt = 0;
 
 function readOutputText(data) {
   if (typeof data.output_text === "string") return data.output_text;
@@ -59,6 +65,117 @@ function polishTranslation(text, language) {
 
 function hasChinese(text) {
   return /[\u3400-\u9fff]/.test(text);
+}
+
+function uniqueList(items, limit) {
+  return [...new Set(items.filter(Boolean))].slice(0, limit);
+}
+
+function escapeSparqlString(value) {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+function cachedProperNoun(term) {
+  const cached = properNounCache.get(term);
+  if (!cached) return null;
+  if (cached.expiresAt < Date.now()) {
+    properNounCache.delete(term);
+    return null;
+  }
+  return cached.value;
+}
+
+function cacheProperNoun(term, value) {
+  properNounCache.set(term, { value, expiresAt: Date.now() + properNounCacheTtl });
+}
+
+function properNounCandidatesFromText(chineseText) {
+  const candidates = [];
+  const runs = chineseText.match(/[\u3400-\u9fff]{2,18}/g) ?? [];
+  runs.forEach((run) => {
+    for (let end = 2; end <= run.length; end += 1) {
+      const maxLength = Math.min(8, end);
+      for (let length = maxLength; length >= 2; length -= 1) {
+        const term = run.slice(end - length, end);
+        if (commonProperNounFalsePositives.has(term) || !landmarkSuffixPattern.test(term)) continue;
+        candidates.push(term);
+      }
+    }
+  });
+  return uniqueList(candidates.sort((left, right) => right.length - left.length), 12);
+}
+
+function normalizeWikidataEnglishLabel(term, label) {
+  if (term === "美景宫" && /belvedere/i.test(label)) return "Belvedere";
+  return label;
+}
+
+async function queuedWikidataFetch(url) {
+  const run = wikidataQueue.catch(() => {}).then(async () => {
+    const waitMs = Math.max(0, 25 - (Date.now() - lastWikidataRequestAt));
+    if (waitMs) await new Promise((resolve) => setTimeout(resolve, waitMs));
+    lastWikidataRequestAt = Date.now();
+    return fetch(url, {
+      headers: {
+        Accept: "application/sparql-results+json",
+        "User-Agent": "bilingual-ime-prototype/1.0 (proper noun lookup)",
+      },
+    });
+  });
+  wikidataQueue = run.catch(() => {});
+  return run;
+}
+
+export async function fetchProperNounTranslation(chineseText) {
+  const terms = properNounCandidatesFromText(chineseText);
+  const results = new Map();
+  const missing = [];
+
+  terms.forEach((term) => {
+    const cached = cachedProperNoun(term);
+    if (cached === null) missing.push(term);
+    else if (cached) results.set(term, cached);
+  });
+
+  if (!missing.length) return results;
+
+  try {
+    const values = missing.map((term) => `"${escapeSparqlString(term)}"@zh`).join(" ");
+    const sparql = `
+      SELECT ?zhLabel ?itemLabel WHERE {
+        VALUES ?zhLabel { ${values} }
+        ?item rdfs:label ?zhLabel.
+        SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+      }
+      LIMIT ${missing.length}
+    `;
+    const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`;
+    const wikidataResponse = await queuedWikidataFetch(url);
+    if (!wikidataResponse.ok) throw new Error(`Wikidata ${wikidataResponse.status}`);
+    const data = await wikidataResponse.json();
+    const rows = data.results?.bindings ?? [];
+    rows.forEach((row) => {
+      const term = row.zhLabel?.value;
+      const label = row.itemLabel?.value;
+      if (!term || !label || hasChinese(label)) return;
+      const normalizedLabel = normalizeWikidataEnglishLabel(term, label);
+      results.set(term, normalizedLabel);
+      cacheProperNoun(term, normalizedLabel);
+    });
+    [...results.keys()].forEach((term) => {
+      if ([...results.keys()].some((otherTerm) => otherTerm !== term && otherTerm.includes(term))) {
+        results.delete(term);
+        cacheProperNoun(term, "");
+      }
+    });
+    missing
+      .filter((term) => !results.has(term))
+      .forEach((term) => cacheProperNoun(term, ""));
+  } catch (error) {
+    console.warn("Wikidata proper noun lookup failed.");
+  }
+
+  return results;
 }
 
 function normalizeClientGlossary(entries, targetLanguage) {
@@ -115,10 +232,22 @@ export default async function handler(request, response) {
   if (!process.env.OPENAI_API_KEY) return json(response, { error: "Translation service is not configured" }, 503);
 
   const clientGlossary = normalizeClientGlossary(body.glossaryEntries, targetLanguage);
+  const properNounGlossary = targetLanguage === "en"
+    ? [...(await fetchProperNounTranslation(remoteTexts.join("\n")))].map(([zh, target]) => ({
+        zh,
+        target,
+        alternatives: [],
+        domain: "proper-noun",
+        matchedTerm: zh,
+      }))
+    : [];
   const relevantGlossary = [
     ...clientGlossary,
-    ...getRelevantGlossary(remoteTexts, targetLanguage)
+    ...properNounGlossary
       .filter((entry) => !clientGlossary.some((clientEntry) => clientEntry.zh === entry.zh)),
+    ...getRelevantGlossary(remoteTexts, targetLanguage)
+      .filter((entry) => !clientGlossary.some((clientEntry) => clientEntry.zh === entry.zh)
+        && !properNounGlossary.some((properNounEntry) => properNounEntry.zh === entry.zh)),
   ];
   const prompt = [
     `Translate every Simplified Chinese item into ${supportedLanguages[targetLanguage]}.`,
@@ -154,6 +283,9 @@ export default async function handler(request, response) {
     context ? `Use this surrounding Chinese context when it helps: ${context}` : "",
     relevantGlossary.length
       ? `Glossary constraints. Use these translations for matching terms when they appear in the source; user entries and edited translations override defaults and style rules: ${JSON.stringify(relevantGlossary)}`
+      : "",
+    properNounGlossary.length
+      ? `Proper noun constraints. These are mandatory standard names from Wikidata: ${properNounGlossary.map((entry) => `${entry.zh} 必须翻译为 ${entry.target}`).join("; ")}`
       : "",
     "Return only a JSON object whose keys are the original Chinese strings and values are their translations.",
     JSON.stringify(remoteTexts),
