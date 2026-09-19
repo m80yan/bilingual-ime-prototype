@@ -14,6 +14,13 @@ const preferredSyllableCandidates = {
 };
 const fuzzyInitialPairs = [["s", "sh"], ["z", "zh"], ["c", "ch"]];
 const fuzzyFinalPairs = [["an", "ang"], ["en", "eng"], ["in", "ing"]];
+const indexedKeysByFirstLetter = keys.reduce((index, key) => {
+  const firstLetter = key[0];
+  if (!firstLetter) return index;
+  if (!index.has(firstLetter)) index.set(firstLetter, []);
+  index.get(firstLetter).push({ key, length: key.length, entries: dict[key] });
+  return index;
+}, new Map());
 
 function unique(items, limit) {
   return [...new Set(items.filter(Boolean))].slice(0, limit);
@@ -129,13 +136,73 @@ function fuzzyPinyinVariants(input, limit = 18) {
   return unique(variants, limit);
 }
 
-function fuzzyCandidates(input, limit) {
+function phoneticFuzzyCandidates(input, limit) {
   const matches = fuzzyPinyinVariants(input)
     .flatMap((variant) => [
       ...domainGlossaryCandidates(variant, limit),
       ...rankedDictEntries(variant, 4).map((entry) => entry.w),
     ]);
   return unique(matches, limit);
+}
+
+function boundedLevenshtein(left, right, maxDistance) {
+  if (Math.abs(left.length - right.length) > maxDistance) return maxDistance + 1;
+
+  let previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+    const current = [leftIndex];
+    let rowMin = current[0];
+
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+      const substitutionCost = left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1;
+      const editDistance = Math.min(
+        previous[rightIndex] + 1,
+        current[rightIndex - 1] + 1,
+        previous[rightIndex - 1] + substitutionCost,
+      );
+      current[rightIndex] = editDistance;
+      rowMin = Math.min(rowMin, editDistance);
+    }
+
+    if (rowMin > maxDistance) return maxDistance + 1;
+    previous = current;
+  }
+
+  return previous[right.length];
+}
+
+function pinyinEditDistance(left, right, maxDistance) {
+  const directDistance = boundedLevenshtein(left, right, maxDistance);
+  if (directDistance <= maxDistance) return directDistance;
+
+  const finalNormalized = left.replaceAll("ong", "ao");
+  if (finalNormalized === left) return directDistance;
+  return boundedLevenshtein(finalNormalized, right, maxDistance);
+}
+
+function editDistanceCandidates(input, limit) {
+  return unique(
+    (indexedKeysByFirstLetter.get(input[0]) ?? [])
+      .filter((item) => Math.abs(item.length - input.length) <= 2)
+      .flatMap((item) => {
+        const distance = pinyinEditDistance(input, item.key, 2);
+        if (distance > 2) return [];
+        const penalty = distance <= 1 ? 1 : 0.5;
+        return item.entries.map((entry) => ({
+          word: entry.w,
+          score: entry.f * penalty,
+          distance,
+        }));
+      })
+      .sort((left, right) => right.score - left.score || left.distance - right.distance)
+      .map((item) => item.word),
+    limit,
+  );
+}
+
+function fuzzyCandidates(input, limit, exactCount = 0) {
+  const typoMatches = exactCount < 3 ? editDistanceCandidates(input, limit) : [];
+  return unique([...typoMatches, ...phoneticFuzzyCandidates(input, limit)], limit);
 }
 
 function segmentedCandidates(input, limit) {
@@ -362,7 +429,7 @@ export function getPinyinCandidates(value, limit = 25) {
   const leadingSingles = leadingSingleCharCandidates(input, limit);
   const shorterLeadingSingles = shorterLeadingSingleCharCandidates(input, limit);
   const prefix = prefixSyllableCandidates(input, limit);
-  const fuzzy = fuzzyCandidates(input, limit);
+  const fuzzy = fuzzyCandidates(input, limit, exact.length);
   if (dict[input]) return unique([...shortcut, ...glossary, ...preferred, ...exact.slice(0, 1), ...pendingGlossary, ...fuzzy, ...prefix, ...leading, ...leadingSingles, ...shorterLeadingSingles, ...exact.slice(1), ...associated], limit);
 
   if (input.length >= 12) {
