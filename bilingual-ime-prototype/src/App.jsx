@@ -1574,7 +1574,7 @@ export function App() {
     <main className="input-stage">
       <FluidGradientBackground />
       <section className="product-intro" style={{ width: windowSize.width }} aria-label="Product introduction">
-        <h1>Try Smart Bilingual Notes online</h1>
+        <h1><span className="intro-title-blend">Try</span> Smart Bilingual Notes <span className="intro-title-blend">online</span></h1>
         <p>Smart Bilingual Notes turns your Chinese into English/Japanese notes while immersing you in a second language — all online,<br />AI-powered with cloud vocabulary. No installation needed.</p>
         <p>To try it out, choose your target language below and start typing.</p>
       </section>
