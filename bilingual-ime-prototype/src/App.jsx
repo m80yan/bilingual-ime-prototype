@@ -49,6 +49,7 @@ const USER_DICTIONARY_KEY = "ime:user-dictionary";
 const USER_GLOSSARY_KEY = "ime:domain-glossary";
 const MISSED_QUERIES_KEY = "ime:missed-queries";
 const USER_TRANSLATION_PATCHES_KEY = "ime:user-translation-patches";
+const USER_TRANSLATION_PATCH_HISTORY_KEY = "ime:user-translation-patch-history";
 const USER_LEARNING_HALF_LIFE_MS = 1000 * 60 * 60 * 24 * 7;
 const HISTORY_LIMIT = 80;
 const emptyGlossaryDraft = { zh: "", pinyin: "", en: "", ja: "", domain: "common" };
@@ -184,6 +185,24 @@ function writeTranslationPatches(patches) {
     window.localStorage.setItem(USER_TRANSLATION_PATCHES_KEY, JSON.stringify(patches));
   } catch {
     // Ignore storage failures; user edits should not block typing.
+  }
+}
+
+function readTranslationPatchHistory() {
+  try {
+    const saved = window.localStorage.getItem(USER_TRANSLATION_PATCH_HISTORY_KEY);
+    const entries = saved ? JSON.parse(saved) : {};
+    return entries && typeof entries === "object" ? entries : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeTranslationPatchHistory(entries) {
+  try {
+    window.localStorage.setItem(USER_TRANSLATION_PATCH_HISTORY_KEY, JSON.stringify(entries));
+  } catch {
+    // Ignore storage failures; translation undo should not block typing.
   }
 }
 
@@ -369,6 +388,7 @@ export function App() {
   const [candidatePage, setCandidatePage] = useState(0);
   const [draftLines, setDraftLines] = useState([""]);
   const [softBreaks, setSoftBreaks] = useState([false]);
+  const [lineLanguages, setLineLanguages] = useState(["en"]);
   const [translations, setTranslations] = useState({});
   const [userDictionary, setUserDictionary] = useState(() => readUserDictionary());
   const [userGlossary, setUserGlossary] = useState(() => readUserGlossary());
@@ -381,7 +401,9 @@ export function App() {
   const [glossarySuggestError, setGlossarySuggestError] = useState("");
   const [missedQueries, setMissedQueries] = useState(() => readMissedQueries());
   const [translationPatches, setTranslationPatches] = useState(() => readTranslationPatches());
+  const [translationPatchHistory, setTranslationPatchHistory] = useState(() => readTranslationPatchHistory());
   const [editingTranslation, setEditingTranslation] = useState(null);
+  const [editIconLine, setEditIconLine] = useState(null);
   const [playedTranslations, setPlayedTranslations] = useState({});
   const [loadingSegments, setLoadingSegments] = useState({});
   const [activeLine, setActiveLine] = useState(0);
@@ -517,9 +539,10 @@ export function App() {
     const segmentInstances = draftLines.flatMap((line, lineIndex) => (
       splitChineseSegments(line).map((segment, segmentIndex) => ({
         zh: segment,
+        language: lineLanguages[lineIndex] ?? secondaryLanguage,
         lineIndex,
         segmentIndex,
-        frozenKey: frozenFinalTranslationKey(secondaryLanguage, lineIndex, segmentIndex, segment),
+        frozenKey: frozenFinalTranslationKey(lineLanguages[lineIndex] ?? secondaryLanguage, lineIndex, segmentIndex, segment),
         isFinal: isFinalTranslationSegment(segment) || lineIndex < draftLines.length - 1,
       }))
     )).filter(({ zh }) => isChineseText(zh));
@@ -550,39 +573,43 @@ export function App() {
     }
 
     const pendingSource = query
-      ? [{ zh: selectedCandidateText, lineIndex: -1, segmentIndex: -1 }]
+      ? [{ zh: selectedCandidateText, language: secondaryLanguage, lineIndex: -1, segmentIndex: -1 }]
       : segmentInstances.filter((instance) => !instance.isFinal);
     const pendingDraft = [...new Map(pendingSource.filter(({ zh }) => Boolean(zh)).map((instance) => [instance.zh, instance])).values()]
-      .filter(({ zh, lineIndex, segmentIndex }) => !localTranslations[zh]?.[secondaryLanguage]
-        && !unpunctuatedTranslationFromFinal(zh, secondaryLanguage, lineIndex, segmentIndex, translations)
-        && !(splitFinalPunctuation(zh).body !== zh && translationFor(splitFinalPunctuation(zh).body, secondaryLanguage) !== (secondaryLanguage === "en" ? "…" : "翻訳中…"))
-        && !userGlossaryTranslation(zh, secondaryLanguage, userGlossary)
-        && !(secondaryLanguage === "en" && cedictTranslations[zh]?.length)
-        && !translations[translationCacheKey(secondaryLanguage, translationStyle, zh)])
-      .map(({ zh }) => zh);
+      .filter(({ zh, language, lineIndex, segmentIndex }) => !localTranslations[zh]?.[language]
+        && !unpunctuatedTranslationFromFinal(zh, language, lineIndex, segmentIndex, translations)
+        && !(splitFinalPunctuation(zh).body !== zh && translationFor(splitFinalPunctuation(zh).body, language) !== (language === "en" ? "…" : "翻訳中…"))
+        && !userGlossaryTranslation(zh, language, userGlossary)
+        && !(language === "en" && cedictTranslations[zh]?.length)
+        && !translations[translationCacheKey(language, translationStyle, zh)])
+      .map(({ zh, language }) => ({ zh, language }));
     const pendingFinalInstances = query ? [] : segmentInstances
       .filter((instance) => instance.isFinal)
       .filter(({ frozenKey }) => !translations[frozenKey]);
-    const existingFinalEntries = pendingFinalInstances.flatMap(({ zh, frozenKey }) => {
-      const existingTranslation = punctuatedTranslationFromBase(zh, secondaryLanguage, translations)
-        ?? translations[translationCacheKey(secondaryLanguage, translationStyle, zh, "final")]
-        ?? translations[translationCacheKey(secondaryLanguage, translationStyle, zh)]
-        ?? translations[`${secondaryLanguage}:${zh}`]
-        ?? userGlossaryTranslation(zh, secondaryLanguage, userGlossary)
-        ?? localTranslations[zh]?.[secondaryLanguage]
-        ?? (secondaryLanguage === "en" && cedictTranslations[zh]?.length ? cedictTranslations[zh].join("; ") : null);
+    const existingFinalEntries = pendingFinalInstances.flatMap(({ zh, language, frozenKey }) => {
+      const existingTranslation = punctuatedTranslationFromBase(zh, language, translations)
+        ?? translations[translationCacheKey(language, translationStyle, zh, "final")]
+        ?? translations[translationCacheKey(language, translationStyle, zh)]
+        ?? translations[`${language}:${zh}`]
+        ?? userGlossaryTranslation(zh, language, userGlossary)
+        ?? localTranslations[zh]?.[language]
+        ?? (language === "en" && cedictTranslations[zh]?.length ? cedictTranslations[zh].join("; ") : null);
       return existingTranslation ? [[frozenKey, existingTranslation]] : [];
     });
     if (existingFinalEntries.length) {
       setTranslations((current) => ({ ...current, ...Object.fromEntries(existingFinalEntries) }));
     }
-    const pendingFinal = [...new Set(pendingFinalInstances
+    const pendingFinal = [...new Map(pendingFinalInstances
       .filter(({ frozenKey }) => !existingFinalEntries.some(([key]) => key === frozenKey))
-      .map(({ zh }) => zh))];
-    const requests = [
-      { mode: "draft", texts: pendingDraft },
-      { mode: "final", texts: pendingFinal },
-    ].filter((request) => request.texts.length);
+      .map(({ zh, language }) => [`${language}:${zh}`, { zh, language }])).values()];
+    const requestMap = new Map();
+    [...pendingDraft.map((item) => ({ ...item, mode: "draft" })), ...pendingFinal.map((item) => ({ ...item, mode: "final" }))].forEach((item) => {
+      const key = `${item.mode}:${item.language}`;
+      const request = requestMap.get(key) ?? { mode: item.mode, language: item.language, texts: [] };
+      request.texts.push(item.zh);
+      requestMap.set(key, request);
+    });
+    const requests = [...requestMap.values()];
 
     if (!requests.length) {
       const settle = window.setTimeout(() => setLoadingSegments({}), 360);
@@ -598,28 +625,28 @@ export function App() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               texts: request.texts,
-              targetLanguage: secondaryLanguage,
+              targetLanguage: request.language,
               style: translationStyle,
               mode: request.mode,
               context: draftLines.join("\n"),
-              glossaryEntries: relevantTranslationGlossary(request.texts, secondaryLanguage, userGlossary),
+              glossaryEntries: relevantTranslationGlossary(request.texts, request.language, userGlossary),
             }),
             signal: controller.signal,
           });
           if (!response.ok) return null;
           const { translations: results } = await response.json();
-          return results ? { mode: request.mode, results } : null;
+          return results ? { mode: request.mode, language: request.language, results } : null;
         }));
         const entries = resultsByMode
           .filter(Boolean)
-          .flatMap(({ mode, results }) => Object.entries(results).flatMap(([zh, translation]) => [
+          .flatMap(({ mode, language, results }) => Object.entries(results).flatMap(([zh, translation]) => [
             [
-              mode === "final" ? translationCacheKey(secondaryLanguage, translationStyle, zh, "final") : translationCacheKey(secondaryLanguage, translationStyle, zh),
+              mode === "final" ? translationCacheKey(language, translationStyle, zh, "final") : translationCacheKey(language, translationStyle, zh),
               translation,
             ],
             ...(mode === "final"
               ? pendingFinalInstances
-                  .filter((instance) => instance.zh === zh)
+                  .filter((instance) => instance.zh === zh && instance.language === language)
                   .map((instance) => [instance.frozenKey, translation])
               : []),
           ]));
@@ -634,7 +661,7 @@ export function App() {
     }, 300);
 
     return () => { window.clearTimeout(debounce); controller.abort(); };
-  }, [query, selectedCandidate?.zh, selectedCandidate?.kind, draftLines, secondaryLanguage, translationStyle, userGlossary]);
+  }, [query, selectedCandidate?.zh, selectedCandidate?.kind, draftLines, lineLanguages, secondaryLanguage, translationStyle, userGlossary]);
 
   useEffect(() => {
     function resize(event) {
@@ -653,6 +680,7 @@ export function App() {
       setAllChineseSelected(false);
       setDraftLines([text]);
       setSoftBreaks([false]);
+      setLineLanguages([secondaryLanguage]);
       setActiveLine(0);
       requestAnimationFrame(() => {
         inputRefs.current[0]?.focus();
@@ -683,6 +711,7 @@ export function App() {
     return {
       draftLines,
       softBreaks,
+      lineLanguages,
       query,
       queryCursor,
       activeLine,
@@ -695,6 +724,7 @@ export function App() {
   function restoreEditorSnapshot(snapshot) {
     setDraftLines(snapshot.draftLines);
     setSoftBreaks(snapshot.softBreaks);
+    setLineLanguages(snapshot.lineLanguages ?? snapshot.draftLines.map(() => secondaryLanguage));
     setQuery(snapshot.query);
     setQueryCursor(snapshot.queryCursor);
     setActiveLine(snapshot.activeLine);
@@ -891,6 +921,7 @@ export function App() {
       navigator.clipboard?.writeText(draftLines.join("\n"));
       setDraftLines([""]);
       setSoftBreaks([false]);
+      setLineLanguages([secondaryLanguage]);
       setAllChineseSelected(false);
       setActiveLine(0);
       requestAnimationFrame(() => inputRefs.current[0]?.focus());
@@ -901,6 +932,7 @@ export function App() {
       pushUndoSnapshot();
       setDraftLines([""]);
       setSoftBreaks([false]);
+      setLineLanguages([secondaryLanguage]);
       setAllChineseSelected(false);
       setActiveLine(0);
       requestAnimationFrame(() => inputRefs.current[0]?.focus());
@@ -983,6 +1015,11 @@ export function App() {
         next.splice(activeLine + 1, 0, true);
         return next;
       });
+      setLineLanguages((current) => {
+        const next = [...current];
+        next.splice(activeLine + 1, 0, secondaryLanguage);
+        return next;
+      });
       const nextLine = activeLine + 1;
       setActiveLine(nextLine);
       requestAnimationFrame(() => {
@@ -1022,6 +1059,7 @@ export function App() {
           return next;
         });
         setSoftBreaks((current) => current.filter((_, index) => index !== activeLine));
+        setLineLanguages((current) => current.filter((_, index) => index !== activeLine));
         setActiveLine(previousLine);
         requestAnimationFrame(() => {
           inputRefs.current[previousLine]?.focus();
@@ -1045,6 +1083,7 @@ export function App() {
           return next;
         });
         setSoftBreaks((current) => current.filter((_, index) => index !== activeLine + 1));
+        setLineLanguages((current) => current.filter((_, index) => index !== activeLine + 1));
         requestAnimationFrame(() => {
           inputRefs.current[activeLine]?.focus();
           inputRefs.current[activeLine]?.setSelectionRange(currentLine.length, currentLine.length);
@@ -1058,6 +1097,7 @@ export function App() {
       const previousLine = Math.max(0, activeLine - 1);
       setDraftLines((current) => current.filter((_, index) => index !== activeLine));
       setSoftBreaks((current) => current.filter((_, index) => index !== activeLine));
+      setLineLanguages((current) => current.filter((_, index) => index !== activeLine));
       setActiveLine(previousLine);
       requestAnimationFrame(() => inputRefs.current[previousLine]?.focus());
     }
@@ -1076,6 +1116,7 @@ export function App() {
     const previous = draftLines[lineIndex] ?? "";
     if (next === previous) return;
     pushUndoSnapshot();
+    clearTranslationEditsForLineText(previous);
     const change = insertedTextChange(previous, next);
     const isCompositionInput = /^[a-z=-]+$/i.test(change.inserted);
     if (!isCompositionInput) {
@@ -1109,6 +1150,9 @@ export function App() {
 
   function selectSecondaryLanguage(languageId) {
     setSecondaryLanguage(languageId);
+    if (!(draftLines[activeLine] ?? "").trim()) {
+      setLineLanguages((current) => current.map((language, index) => (index === activeLine ? languageId : language)));
+    }
     setIsSecondaryMenuOpen(false);
   }
 
@@ -1251,10 +1295,27 @@ export function App() {
     const text = value.trim();
     setEditingTranslation(null);
     if (!text || !key?.zh) return;
+    const patchKey = translationPatchKey(key.language, key.style, key.zh);
+    const previousText = translationPatches[patchKey]
+      ?? translations[translationCacheKey(key.language, key.style, key.zh, "final")]
+      ?? translations[translationCacheKey(key.language, key.style, key.zh)]
+      ?? translations[`${key.language}:${key.zh}`]
+      ?? localTranslations[key.zh]?.[key.language]
+      ?? "";
+    if (previousText && previousText !== text) {
+      setTranslationPatchHistory((current) => {
+        const next = {
+          ...current,
+          [patchKey]: [...(current[patchKey] ?? []), previousText].slice(-9),
+        };
+        writeTranslationPatchHistory(next);
+        return next;
+      });
+    }
     setTranslationPatches((current) => {
       const next = {
         ...current,
-        [translationPatchKey(key.language, key.style, key.zh)]: text,
+        [patchKey]: text,
       };
       writeTranslationPatches(next);
       return next;
@@ -1266,6 +1327,76 @@ export function App() {
     }));
   }
 
+  function undoTranslationPatch(key) {
+    const patchKey = translationPatchKey(key.language, key.style, key.zh);
+    const history = translationPatchHistory[patchKey] ?? [];
+    const previousText = history.at(-1);
+    if (!previousText) return;
+    setTranslationPatchHistory((current) => {
+      const next = {
+        ...current,
+        [patchKey]: history.slice(0, -1),
+      };
+      if (!next[patchKey].length) delete next[patchKey];
+      writeTranslationPatchHistory(next);
+      return next;
+    });
+    setTranslationPatches((current) => {
+      const next = { ...current, [patchKey]: previousText };
+      writeTranslationPatches(next);
+      return next;
+    });
+    setTranslations((current) => ({
+      ...current,
+      [translationCacheKey(key.language, key.style, key.zh)]: previousText,
+      [translationCacheKey(key.language, key.style, key.zh, "final")]: previousText,
+    }));
+  }
+
+  function clearTranslationEditsForLineText(line) {
+    const segments = splitChineseSegments(line);
+    if (!segments.length) return;
+    setTranslations((current) => {
+      const next = { ...current };
+      segments.forEach((segment) => {
+        secondaryLanguages.forEach((language) => {
+          translationStyles.forEach((style) => {
+            delete next[translationCacheKey(language.id, style.id, segment)];
+            delete next[translationCacheKey(language.id, style.id, segment, "final")];
+          });
+          Object.keys(next)
+            .filter((key) => key.startsWith(`final:${language.id}:line:`) && key.endsWith(`:${segment}`))
+            .forEach((key) => { delete next[key]; });
+        });
+      });
+      return next;
+    });
+    setTranslationPatches((current) => {
+      const next = { ...current };
+      segments.forEach((segment) => {
+        secondaryLanguages.forEach((language) => {
+          translationStyles.forEach((style) => {
+            delete next[translationPatchKey(language.id, style.id, segment)];
+          });
+        });
+      });
+      writeTranslationPatches(next);
+      return next;
+    });
+    setTranslationPatchHistory((current) => {
+      const next = { ...current };
+      segments.forEach((segment) => {
+        secondaryLanguages.forEach((language) => {
+          translationStyles.forEach((style) => {
+            delete next[translationPatchKey(language.id, style.id, segment)];
+          });
+        });
+      });
+      writeTranslationPatchHistory(next);
+      return next;
+    });
+  }
+
   function translationPair(item) {
     return {
       primary: item.zh,
@@ -1273,10 +1404,10 @@ export function App() {
     };
   }
 
-  function startEditingTranslation(segment, value) {
+  function startEditingTranslation(segment, value, language = secondaryLanguage) {
     setEditingTranslation({
       zh: segment,
-      language: secondaryLanguage,
+      language,
       style: translationStyle,
       value,
     });
@@ -1284,13 +1415,17 @@ export function App() {
 
   function renderSecondarySegments(line, lineIndex) {
     return splitChineseSegments(line).map((segment, segmentIndex) => {
-      const secondary = unpunctuatedTranslationFromFinal(segment, secondaryLanguage, lineIndex, segmentIndex, translations)
-        ?? translationFor(segment, secondaryLanguage, frozenFinalTranslationKey(secondaryLanguage, lineIndex, segmentIndex, segment));
-      const translationKey = `${secondaryLanguage}:${lineIndex}:${segmentIndex}:${segment}:${secondary}`;
+      const lineLanguage = lineLanguages[lineIndex] ?? secondaryLanguage;
+      const secondary = unpunctuatedTranslationFromFinal(segment, lineLanguage, lineIndex, segmentIndex, translations)
+        ?? translationFor(segment, lineLanguage, frozenFinalTranslationKey(lineLanguage, lineIndex, segmentIndex, segment));
+      const translationKey = `${lineLanguage}:${lineIndex}:${segmentIndex}:${segment}:${secondary}`;
+      const patchKey = translationPatchKey(lineLanguage, translationStyle, segment);
+      const patchHistoryCount = translationPatchHistory[patchKey]?.length ?? 0;
       const needsSpace = segmentIndex > 0;
       const isCompleteSegment = isFinalTranslationSegment(segment) || lineIndex < draftLines.length - 1;
+      const iconLine = editIconLine ?? activeLine;
       const showEditButton = isCompleteSegment
-        && lineIndex === activeLine
+        && lineIndex === iconLine
         && Boolean(playedTranslations[translationKey])
         && !loadingSegments[segment]
         && secondary !== "…"
@@ -1301,12 +1436,12 @@ export function App() {
           {needsSpace ? " " : ""}
           {loadingSegments[segment]
             ? <span className="translation-shimmer segment-shimmer" aria-label="Translating" />
-            : editingTranslation?.zh === segment && editingTranslation?.language === secondaryLanguage && editingTranslation?.style === translationStyle
+            : editingTranslation?.zh === segment && editingTranslation?.language === lineLanguage && editingTranslation?.style === translationStyle
               ? <input
                   autoFocus
-                  className="translation-edit"
+                  className={lineLanguage === "en" ? "translation-edit secondary-line-en" : "translation-edit"}
                   defaultValue={editingTranslation.value}
-                  style={{ width: `min(${Math.max(24, editingTranslation.value.length + 2)}ch, calc(100vw - 48px))` }}
+                  style={{ width: `min(calc(${Math.max(1, editingTranslation.value.length)}ch + 8px), calc(100vw - 48px))` }}
                   onBlur={(event) => saveTranslationPatch(editingTranslation, event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
@@ -1315,14 +1450,15 @@ export function App() {
                     }
                     if (event.key === "Escape") {
                       event.preventDefault();
-                      setEditingTranslation(null);
+                      saveTranslationPatch(editingTranslation, event.currentTarget.value);
                     }
                   }}
                 />
               : <span
                   className="translation-editable"
                   title="Double-click to edit translation"
-                  onDoubleClick={() => startEditingTranslation(segment, secondary)}
+                  onClick={() => setEditIconLine(lineIndex)}
+                  onDoubleClick={() => startEditingTranslation(segment, secondary, lineLanguage)}
                 >
                   <StableTranslation
                     text={secondary}
@@ -1335,11 +1471,26 @@ export function App() {
                       type="button"
                       aria-label="Edit translation"
                       title="Edit translation"
-                      onClick={() => startEditingTranslation(segment, secondary)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        startEditingTranslation(segment, secondary, lineLanguage);
+                      }}
                     >
                       <img className="edit-icon edit-icon-default" src="/assets/figma-edit-default.svg" alt="" />
                       <img className="edit-icon edit-icon-hover" src="/assets/figma-edit-hover.svg" alt="" />
                       <img className="edit-icon edit-icon-pressed" src="/assets/figma-edit-pressed.svg" alt="" />
+                    </button>
+                  )}
+                  {patchHistoryCount > 0 && (
+                    <button
+                      className="translation-undo"
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        undoTranslationPatch({ zh: segment, language: lineLanguage, style: translationStyle });
+                      }}
+                    >
+                      {`Undo${patchHistoryCount}`}
                     </button>
                   )}
                 </span>}
@@ -1443,7 +1594,7 @@ export function App() {
                       ref={(element) => { inputRefs.current[index] = element; }}
                       value={line}
                       onChange={(event) => handleDraftChange(event, index)}
-                      onFocus={() => { setActiveLine(index); setIsEditorFocused(true); }}
+                      onFocus={() => { setActiveLine(index); setEditIconLine(null); setIsEditorFocused(true); }}
                       onBlur={() => setIsEditorFocused(false)}
                       onKeyDown={handleKeyDown}
                       onKeyUp={updateCandidatePosition}
@@ -1459,7 +1610,11 @@ export function App() {
                         {secondaryPlaceholders[secondaryLanguage]}
                       </span>
                     )}
-                    {line && <span className="secondary-line">{renderSecondarySegments(line, index)}</span>}
+                    {line && (
+                      <span className={lineLanguages[index] === "en" ? "secondary-line secondary-line-en" : "secondary-line"}>
+                        {renderSecondarySegments(line, index)}
+                      </span>
+                    )}
                   </p>
                 );
               })}
@@ -1491,7 +1646,7 @@ export function App() {
             )}
           </div>
         </section>
-        <footer className="ime-footer"><span>{`Smart ${footerLanguageLabel} output as you write Chinese`}</span><button className={resizing ? "resize-handle active" : "resize-handle"} onPointerDown={startResize} aria-label="Drag to resize window"><span className="resize-grip" aria-hidden="true">{[1, 2, 3].map((count) => <span className="resize-grip-row" key={count}>{Array.from({ length: count }, (_, index) => <img key={index} src={resizing ? "/assets/figma-drag-handle-pressed.svg" : "/assets/figma-drag-handle-default.svg"} alt="" />)}</span>)}</span></button></footer>
+        <footer className="ime-footer"><span>{`Smart ${footerLanguageLabel} output as you write Chinese`}</span><button className={resizing ? "resize-handle active" : "resize-handle"} onPointerDown={startResize} aria-label="Drag to resize window"><span className="resize-grip" aria-hidden="true">{[0, 1, 2, 3, 4, 5].map((index) => <span className="resize-dot" key={index} />)}</span></button></footer>
         {isGlossaryOpen && (
           <div className="glossary-overlay" role="dialog" aria-modal="true" aria-label="Editable glossary">
             <form className="glossary-panel" onSubmit={saveGlossaryEntry}>
