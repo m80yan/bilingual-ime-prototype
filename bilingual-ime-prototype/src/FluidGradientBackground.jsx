@@ -4,6 +4,7 @@ const FIELD_WIDTH = 240;
 const FIELD_HEIGHT = 226;
 const DRIFT_SECONDS = 5.4;
 const BREATH_SECONDS = 7.2;
+const MOTION_SCALE = 1.5;
 const TAU = Math.PI * 2;
 
 const baseColor = [248, 108, 157];
@@ -40,10 +41,10 @@ function mix(start, end, amount) {
 function motionTarget(peak, index, segment) {
   const drift = peak.drift ?? 1;
   return {
-    x: (seededRandom(index + 1, segment, 1) * 2 - 1) * 0.055 * drift,
-    y: (seededRandom(index + 1, segment, 2) * 2 - 1) * 0.045 * drift,
-    sx: 1 + (seededRandom(index + 1, segment, 3) * 2 - 1) * 0.22 * drift,
-    sy: 1 + (seededRandom(index + 1, segment, 4) * 2 - 1) * 0.24 * drift,
+    x: (seededRandom(index + 1, segment, 1) * 2 - 1) * 0.055 * drift * MOTION_SCALE,
+    y: (seededRandom(index + 1, segment, 2) * 2 - 1) * 0.045 * drift * MOTION_SCALE,
+    sx: 1 + (seededRandom(index + 1, segment, 3) * 2 - 1) * 0.22 * drift * MOTION_SCALE,
+    sy: 1 + (seededRandom(index + 1, segment, 4) * 2 - 1) * 0.24 * drift * MOTION_SCALE,
     strength: 1 + (seededRandom(index + 1, segment, 5) * 2 - 1) * 0.22 * drift,
   };
 }
@@ -58,10 +59,10 @@ function animatedPeak(peak, index, elapsedSeconds) {
   const orbitPhase = elapsedSeconds * 0.22 + peak.phase;
 
   const drift = peak.drift ?? 1;
-  const orbitX = Math.cos(orbitPhase) * 0.018 * drift;
-  const orbitY = Math.sin(orbitPhase * 0.86) * 0.014 * drift;
-  const breath = Math.sin(breathPhase) * 0.10;
-  const counterBreath = Math.cos(breathPhase * 0.9) * 0.08;
+  const orbitX = Math.cos(orbitPhase) * 0.018 * drift * MOTION_SCALE;
+  const orbitY = Math.sin(orbitPhase * 0.86) * 0.014 * drift * MOTION_SCALE;
+  const breath = Math.sin(breathPhase) * 0.10 * MOTION_SCALE;
+  const counterBreath = Math.cos(breathPhase * 0.9) * 0.08 * MOTION_SCALE;
 
   return {
     ...peak,
