@@ -1573,6 +1573,7 @@ export function App() {
   return (
     <main className="input-stage">
       <FluidGradientBackground />
+      <div className="ime-window-shadow" style={{ width: windowSize.width, height: windowSize.height }} aria-hidden="true" />
       <section className="ime-window" style={{ width: windowSize.width, height: windowSize.height }} aria-label="Chinese bilingual input tool">
         <header className="ime-header">
           <div className="header-controls">
