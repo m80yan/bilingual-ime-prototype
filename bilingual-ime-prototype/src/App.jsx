@@ -1575,7 +1575,7 @@ export function App() {
       <FluidGradientBackground />
       <section className="product-intro" style={{ width: windowSize.width }} aria-label="Product introduction">
         <h1>Try Smart Bilingual Notes online</h1>
-        <p>Smart Bilingual Notes turns your Chinese into English/Japanese notes while immersing you in a second language — all online, AI-powered with cloud vocabulary. No installation needed.</p>
+        <p>Smart Bilingual Notes turns your Chinese into English/Japanese notes while immersing you in a second language — all online,</p>
         <p>To try it out, choose your target language below and start typing.</p>
       </section>
       <div className="ime-window-shadow" style={{ width: windowSize.width, height: windowSize.height }} aria-hidden="true" />
