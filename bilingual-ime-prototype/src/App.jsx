@@ -409,6 +409,7 @@ export function App() {
   const [loadingSegments, setLoadingSegments] = useState({});
   const [activeLine, setActiveLine] = useState(0);
   const [windowSize, setWindowSize] = useState({ width: 978, height: 520 });
+  const [shadowOpacity, setShadowOpacity] = useState(50);
   const [resizing, setResizing] = useState(false);
   const [secondaryLanguage, setSecondaryLanguage] = useState("en");
   const [translationStyle, setTranslationStyle] = useState("daily");
@@ -1573,7 +1574,23 @@ export function App() {
   return (
     <main className="input-stage">
       <FluidGradientBackground />
-      <div className="ime-window-shadow" style={{ width: windowSize.width, height: windowSize.height }} aria-hidden="true" />
+      <div
+        className="ime-window-shadow"
+        style={{ width: windowSize.width, height: windowSize.height, "--shadow-opacity": shadowOpacity / 100 }}
+        aria-hidden="true"
+      />
+      <label className="bg-shadow-control">
+        <span>Shadow</span>
+        <input
+          type="range"
+          min="0"
+          max="100"
+          value={shadowOpacity}
+          onChange={(event) => setShadowOpacity(Number(event.target.value))}
+          aria-label="Shadow strength"
+        />
+        <span>{shadowOpacity}</span>
+      </label>
       <section className="ime-window" style={{ width: windowSize.width, height: windowSize.height }} aria-label="Chinese bilingual input tool">
         <header className="ime-header">
           <div className="header-controls">
