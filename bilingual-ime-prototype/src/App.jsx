@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { FluidGradientBackground } from "./FluidGradientBackground";
 import { getPinyinCandidates, remainingPinyinAfterLeadingCandidate } from "./pinyinEngine";
 import cedictTranslations from "./data/cedict-en.json";
 import { domainGlossarySeedEntries, glossaryEntryWeight } from "./data/domainGlossarySeed";
@@ -1571,6 +1572,7 @@ export function App() {
 
   return (
     <main className="input-stage">
+      <FluidGradientBackground />
       <section className="ime-window" style={{ width: windowSize.width, height: windowSize.height }} aria-label="Chinese bilingual input tool">
         <header className="ime-header">
           <div className="header-controls">
