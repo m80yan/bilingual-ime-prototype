@@ -408,7 +408,7 @@ export function App() {
   const [playedTranslations, setPlayedTranslations] = useState({});
   const [loadingSegments, setLoadingSegments] = useState({});
   const [activeLine, setActiveLine] = useState(0);
-  const [windowSize, setWindowSize] = useState({ width: 978, height: 520 });
+  const [windowSize, setWindowSize] = useState({ width: 978, height: 460 });
   const [resizing, setResizing] = useState(false);
   const [secondaryLanguage, setSecondaryLanguage] = useState("en");
   const [translationStyle, setTranslationStyle] = useState("daily");
@@ -1573,6 +1573,11 @@ export function App() {
   return (
     <main className="input-stage">
       <FluidGradientBackground />
+      <section className="product-intro" style={{ width: windowSize.width }} aria-label="Product introduction">
+        <h1>Try Smart Bilingual Notes online</h1>
+        <p>Smart Bilingual Notes turns your Chinese into English/Japanese notes while immersing you in a second language — all online, AI-powered with cloud vocabulary. No installation needed.</p>
+        <p>To try it out, choose your target language below and start typing.</p>
+      </section>
       <div className="ime-window-shadow" style={{ width: windowSize.width, height: windowSize.height }} aria-hidden="true" />
       <section className="ime-window" style={{ width: windowSize.width, height: windowSize.height }} aria-label="Chinese bilingual input tool">
         <header className="ime-header">
