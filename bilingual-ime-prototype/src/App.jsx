@@ -409,6 +409,7 @@ export function App() {
   const [loadingSegments, setLoadingSegments] = useState({});
   const [activeLine, setActiveLine] = useState(0);
   const [windowSize, setWindowSize] = useState({ width: 978, height: 460 });
+  const [titleBlendOpacity, setTitleBlendOpacity] = useState(75);
   const [resizing, setResizing] = useState(false);
   const [secondaryLanguage, setSecondaryLanguage] = useState("en");
   const [translationStyle, setTranslationStyle] = useState("daily");
@@ -1574,10 +1575,22 @@ export function App() {
     <main className="input-stage">
       <FluidGradientBackground />
       <section className="product-intro" style={{ width: windowSize.width }} aria-label="Product introduction">
-        <h1><span className="intro-title-blend">Try</span> Smart Bilingual Notes <span className="intro-title-blend">online</span></h1>
+        <h1 style={{ "--title-blend-opacity": titleBlendOpacity / 100 }}><span className="intro-title-blend">Try</span> Smart Bilingual Notes <span className="intro-title-blend">online</span></h1>
         <p>Smart Bilingual Notes turns your Chinese into English/Japanese notes while immersing you in a second language — all online,<br />AI-powered with cloud vocabulary. No installation needed.</p>
         <p>To try it out, choose your target language below and start typing.</p>
       </section>
+      <label className="bg-title-opacity-control">
+        <span>Title black</span>
+        <input
+          type="range"
+          min="0"
+          max="100"
+          value={titleBlendOpacity}
+          onChange={(event) => setTitleBlendOpacity(Number(event.target.value))}
+          aria-label="Title black opacity"
+        />
+        <span>{titleBlendOpacity}</span>
+      </label>
       <div className="ime-window-shadow" style={{ width: windowSize.width, height: windowSize.height }} aria-hidden="true" />
       <section className="ime-window" style={{ width: windowSize.width, height: windowSize.height }} aria-label="Chinese bilingual input tool">
         <header className="ime-header">

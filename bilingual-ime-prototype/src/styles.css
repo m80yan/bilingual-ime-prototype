@@ -6,7 +6,9 @@ button { color: inherit; }
 .input-stage { position: relative; display: grid; grid-template-rows: auto auto; place-items: start center; align-content: center; gap: 24px; width: max(100vw, 1112px); min-height: max(100vh, 654px); padding: 50px 67px; overflow: hidden; background: #fafafa; }
 .product-intro { position: relative; z-index: 2; grid-area: 1 / 1; color: #fff; }
 .product-intro h1 { margin: 0 0 12px; font-size: 28px; font-weight: 700; line-height: 34px; }
-.intro-title-blend { color: rgb(0 0 0 / 75%); mix-blend-mode: overlay; }
+.intro-title-blend { color: rgb(0 0 0 / var(--title-blend-opacity, .75)); mix-blend-mode: overlay; }
+.bg-title-opacity-control { position: absolute; right: 20px; bottom: 20px; z-index: 3; display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 10px; background: rgb(255 255 255 / 78%); color: #333; font-size: 12px; font-weight: 700; backdrop-filter: blur(10px); }
+.bg-title-opacity-control input { width: 132px; }
 .product-intro p { max-width: 760px; margin: 0 0 12px; padding-left: 15px; font-size: 16px; font-weight: 500; line-height: 23px; }
 .product-intro p:first-of-type { max-width: none; margin-bottom: 0; white-space: nowrap; }
 .product-intro p:last-child { margin-bottom: 0; }
