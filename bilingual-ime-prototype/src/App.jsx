@@ -1456,6 +1456,10 @@ export function App() {
                   className={lineLanguage === "en" ? "translation-edit secondary-line-en" : "translation-edit"}
                   defaultValue={editingTranslation.value}
                   style={{ width: `min(calc(${Math.max(1, editingTranslation.value.length)}ch + 8px), calc(100vw - 48px))` }}
+                  onFocus={(event) => {
+                    const end = event.currentTarget.value.length;
+                    event.currentTarget.setSelectionRange(end, end);
+                  }}
                   onBlur={(event) => saveTranslationPatch(editingTranslation, event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
