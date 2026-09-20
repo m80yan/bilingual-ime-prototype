@@ -1438,9 +1438,10 @@ export function App() {
       const needsSpace = segmentIndex > 0;
       const isCompleteSegment = isFinalTranslationSegment(segment) || lineIndex < draftLines.length - 1;
       const iconLine = editIconLine ?? activeLine;
+      const translationReady = lineLanguage !== "en" || Boolean(playedTranslations[translationKey]);
       const showEditButton = isCompleteSegment
         && lineIndex === iconLine
-        && Boolean(playedTranslations[translationKey])
+        && translationReady
         && !loadingSegments[segment]
         && secondary !== "…"
         && secondary !== "翻訳中…";
@@ -1480,7 +1481,7 @@ export function App() {
                 >
                   <StableTranslation
                     text={secondary}
-                    hasPlayed={Boolean(playedTranslations[translationKey])}
+                    hasPlayed={translationReady}
                     onDone={() => setPlayedTranslations((current) => ({ ...current, [translationKey]: true }))}
                   />
                   {showEditButton && (
