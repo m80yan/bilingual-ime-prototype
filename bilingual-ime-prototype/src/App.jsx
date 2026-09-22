@@ -1021,9 +1021,7 @@ export function App() {
       setAllChineseSelected(false);
     }
     if (event.metaKey || event.ctrlKey || event.altKey) return;
-    if (event.key === "ArrowDown" && query && pagedCandidates.length) { event.preventDefault(); setSelected((current) => (current + 1) % pagedCandidates.length); }
-    else if (event.key === "ArrowUp" && query && pagedCandidates.length) { event.preventDefault(); setSelected((current) => (current - 1 + pagedCandidates.length) % pagedCandidates.length); }
-    else if (event.key === "ArrowDown" && !query && activeLine < draftLines.length - 1) {
+    if (event.key === "ArrowDown" && activeLine < draftLines.length - 1) {
       event.preventDefault();
       const nextLine = activeLine + 1;
       const column = inputRefs.current[activeLine]?.selectionStart ?? draftLines[activeLine].length;
@@ -1034,7 +1032,7 @@ export function App() {
         updateCandidatePosition();
       });
     }
-    else if (event.key === "ArrowUp" && !query && activeLine > 0) {
+    else if (event.key === "ArrowUp" && activeLine > 0) {
       event.preventDefault();
       const nextLine = activeLine - 1;
       const column = inputRefs.current[activeLine]?.selectionStart ?? draftLines[activeLine].length;
@@ -1045,22 +1043,7 @@ export function App() {
         updateCandidatePosition();
       });
     }
-    else if (event.key === "ArrowLeft" && query) { event.preventDefault(); setQueryCursor((current) => Math.max(0, current - 1)); }
-    else if (event.key === "ArrowRight" && query) { event.preventDefault(); setQueryCursor((current) => Math.min(query.length, current + 1)); }
-    else if (event.key === "-" && query && candidatePage > 0) { event.preventDefault(); setCandidatePage((current) => Math.max(0, current - 1)); setSelected(0); }
-    else if (event.key === "=" && query && candidatePage < pageCount - 1) {
-      event.preventDefault();
-      const nextPage = Math.min(pageCount - 1, candidatePage + 1);
-      if (nextPage === pageCount - 1) recordMissedQuery(query, "reached_last_candidate_page");
-      setCandidatePage(nextPage);
-      setSelected(0);
-    }
-    else if ((event.key === "Enter" || event.key === " ") && query && pagedCandidates.length) {
-      event.preventDefault();
-      const candidate = pagedCandidates[selected];
-      commit(candidate, event.key === " " && candidate?.kind === "en" ? " " : "");
-    }
-    else if (event.key === "Enter" && !query) {
+    else if (event.key === "Enter") {
       event.preventDefault();
       pushUndoSnapshot();
       const editor = inputRefs.current[activeLine];
@@ -1093,22 +1076,7 @@ export function App() {
         updateCandidatePosition();
       });
     }
-    else if (/^[1-7]$/.test(event.key) && pagedCandidates[Number(event.key) - 1]) { event.preventDefault(); commit(pagedCandidates[Number(event.key) - 1]); }
-    else if (punctuationMap[event.key]) { event.preventDefault(); commit(query ? pagedCandidates[selected] : null, punctuationMap[event.key]); }
-    else if (event.key === "Backspace" && query) {
-      event.preventDefault();
-      if (queryCursor > 0) {
-        pushUndoSnapshot();
-        setQuery((current) => `${current.slice(0, queryCursor - 1)}${current.slice(queryCursor)}`);
-        setQueryCursor((current) => Math.max(0, current - 1));
-      }
-    }
-    else if (event.key === "Delete" && query) {
-      event.preventDefault();
-      pushUndoSnapshot();
-      setQuery((current) => `${current.slice(0, queryCursor)}${current.slice(queryCursor + 1)}`);
-    }
-    else if (event.key === "Backspace" && !query && activeLine > 0) {
+    else if (event.key === "Backspace" && activeLine > 0) {
       const editor = inputRefs.current[activeLine];
       const start = editor?.selectionStart ?? 0;
       const end = editor?.selectionEnd ?? start;
@@ -1133,7 +1101,7 @@ export function App() {
         });
       }
     }
-    else if (event.key === "Delete" && !query && activeLine < draftLines.length - 1) {
+    else if (event.key === "Delete" && activeLine < draftLines.length - 1) {
       const editor = inputRefs.current[activeLine];
       const currentLine = draftLines[activeLine] ?? "";
       const start = editor?.selectionStart ?? currentLine.length;
@@ -1156,7 +1124,7 @@ export function App() {
         });
       }
     }
-    else if (event.key === "Backspace" && !query && !draftLines[activeLine] && draftLines.length > 1) {
+    else if (event.key === "Backspace" && !draftLines[activeLine] && draftLines.length > 1) {
       event.preventDefault();
       pushUndoSnapshot();
       const previousLine = Math.max(0, activeLine - 1);
@@ -1165,13 +1133,6 @@ export function App() {
       setLineLanguages((current) => current.filter((_, index) => index !== activeLine));
       setActiveLine(previousLine);
       requestAnimationFrame(() => inputRefs.current[previousLine]?.focus());
-    }
-    else if (/^[a-z]$/i.test(event.key) && !event.metaKey && !event.ctrlKey && !event.altKey) {
-      event.preventDefault();
-      pushUndoSnapshot();
-      const letter = event.key;
-      setQuery((current) => `${current.slice(0, queryCursor)}${letter}${current.slice(queryCursor)}`);
-      setQueryCursor((current) => current + 1);
     }
   }
 
@@ -1185,31 +1146,8 @@ export function App() {
     if (!previous.trim() && next.trim()) {
       setLineLanguages((current) => current.map((language, index) => (index === lineIndex ? secondaryLanguage : language)));
     }
-    const change = insertedTextChange(previous, next);
-    const isCompositionInput = /^[a-z=-]+$/i.test(change.inserted);
-    if (!isCompositionInput) {
-      scheduleSecondaryEditIcon(lineIndex, next);
-      setDraftLines((current) => current.map((line, index) => (index === lineIndex ? next : line)));
-      return;
-    }
-
-    const pinyin = change.inserted.match(/[a-z]+/gi)?.join("") ?? "";
-    if (query && change.inserted.includes("=") && candidatePage < pageCount - 1) {
-      setCandidatePage((current) => Math.min(pageCount - 1, current + 1));
-      setSelected(0);
-    }
-    if (query && change.inserted.includes("-") && candidatePage > 0) {
-      setCandidatePage((current) => Math.max(0, current - 1));
-      setSelected(0);
-    }
-    const cleanedInserted = change.inserted.replace(/[a-z=-]+/gi, "");
-    const cleanedNext = `${next.slice(0, change.start)}${cleanedInserted}${next.slice(change.end)}`;
-    scheduleSecondaryEditIcon(lineIndex, cleanedNext);
-    setDraftLines((current) => current.map((line, index) => (index === lineIndex ? cleanedNext : line)));
-    if (pinyin) {
-      setQuery((current) => `${current.slice(0, queryCursor)}${pinyin}${current.slice(queryCursor)}`);
-      setQueryCursor((current) => current + pinyin.length);
-    }
+    scheduleSecondaryEditIcon(lineIndex, next);
+    setDraftLines((current) => current.map((line, index) => (index === lineIndex ? next : line)));
   }
 
   function startResize(event) {
