@@ -710,6 +710,9 @@ export function App() {
     const trimPreviousSpace = shouldTrimSpaceBeforeChinesePunctuation(currentLine.slice(0, start), text);
     const insertStart = trimPreviousSpace ? start - 1 : start;
     const next = `${currentLine.slice(0, insertStart)}${text}${currentLine.slice(end)}`;
+    if (!currentLine.trim() && next.trim()) {
+      setLineLanguages((current) => current.map((language, index) => (index === activeLine ? secondaryLanguage : language)));
+    }
     setDraftLines((current) => current.map((line, index) => (index === activeLine ? next : line)));
     requestAnimationFrame(() => {
       inputRefs.current[activeLine]?.focus();
@@ -1131,6 +1134,9 @@ export function App() {
     if (next === previous) return;
     pushUndoSnapshot();
     clearTranslationEditsForLineText(previous);
+    if (!previous.trim() && next.trim()) {
+      setLineLanguages((current) => current.map((language, index) => (index === lineIndex ? secondaryLanguage : language)));
+    }
     const change = insertedTextChange(previous, next);
     const isCompositionInput = /^[a-z=-]+$/i.test(change.inserted);
     if (!isCompositionInput) {
