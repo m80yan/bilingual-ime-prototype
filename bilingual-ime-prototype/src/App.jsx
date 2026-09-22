@@ -54,6 +54,7 @@ const USER_TRANSLATION_PATCHES_KEY = "ime:user-translation-patches";
 const USER_TRANSLATION_PATCH_HISTORY_KEY = "ime:user-translation-patch-history";
 const USER_LEARNING_HALF_LIFE_MS = 1000 * 60 * 60 * 24 * 7;
 const HISTORY_LIMIT = 80;
+const SECONDARY_EDIT_IDLE_MS = 3000;
 const emptyGlossaryDraft = { zh: "", pinyin: "", en: "", ja: "", domain: "common" };
 const glossarySuggestionDomains = new Set(["design-uiux", "internet-slang", "history", "history-politics", "place", "auto", "ui", "movie", "device", "education", "business", "technology", "medical", "military", "marine", "general"]);
 const highPriorityFeedbackTags = new Set(["terminology_error", "tone_mismatch"]);
@@ -421,6 +422,7 @@ export function App() {
   const [translationPatchHistory, setTranslationPatchHistory] = useState(() => readTranslationPatchHistory());
   const [editingTranslation, setEditingTranslation] = useState(null);
   const [editIconLine, setEditIconLine] = useState(null);
+  const [idleSecondaryEditLines, setIdleSecondaryEditLines] = useState({});
   const [playedTranslations, setPlayedTranslations] = useState({});
   const [loadingSegments, setLoadingSegments] = useState({});
   const [activeLine, setActiveLine] = useState(0);
@@ -436,6 +438,8 @@ export function App() {
   const editorRef = useRef(null);
   const inputRefs = useRef([]);
   const previousDraftLines = useRef([""]);
+  const draftLinesRef = useRef([""]);
+  const idleSecondaryEditTimers = useRef({});
   const resizeStart = useRef(null);
   const undoStack = useRef([]);
   const redoStack = useRef([]);
@@ -552,6 +556,14 @@ export function App() {
       updateCandidatePosition();
     });
     return () => cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    draftLinesRef.current = draftLines;
+  }, [draftLines]);
+
+  useEffect(() => () => {
+    Object.values(idleSecondaryEditTimers.current).forEach((timer) => window.clearTimeout(timer));
   }, []);
 
   useLayoutEffect(() => {
@@ -718,6 +730,7 @@ export function App() {
       setDraftLines([text]);
       setSoftBreaks([false]);
       setLineLanguages([secondaryLanguage]);
+      scheduleSecondaryEditIcon(0, text);
       setActiveLine(0);
       requestAnimationFrame(() => {
         inputRefs.current[0]?.focus();
@@ -736,6 +749,7 @@ export function App() {
     if (!currentLine.trim() && next.trim()) {
       setLineLanguages((current) => current.map((language, index) => (index === activeLine ? secondaryLanguage : language)));
     }
+    scheduleSecondaryEditIcon(activeLine, next);
     setDraftLines((current) => current.map((line, index) => (index === activeLine ? next : line)));
     requestAnimationFrame(() => {
       inputRefs.current[activeLine]?.focus();
@@ -855,6 +869,17 @@ export function App() {
       target.setSelectionRange(target.value.length, target.value.length);
       updateCandidatePosition();
     });
+  }
+
+  function scheduleSecondaryEditIcon(lineIndex, nextLine) {
+    window.clearTimeout(idleSecondaryEditTimers.current[lineIndex]);
+    setIdleSecondaryEditLines((current) => ({ ...current, [lineIndex]: false }));
+    if (!nextLine.trim()) return;
+
+    idleSecondaryEditTimers.current[lineIndex] = window.setTimeout(() => {
+      if (draftLinesRef.current[lineIndex] !== nextLine) return;
+      setIdleSecondaryEditLines((current) => ({ ...current, [lineIndex]: true }));
+    }, SECONDARY_EDIT_IDLE_MS);
   }
 
   function commit(candidate = pagedCandidates[selected], suffix = "") {
@@ -1163,6 +1188,7 @@ export function App() {
     const change = insertedTextChange(previous, next);
     const isCompositionInput = /^[a-z=-]+$/i.test(change.inserted);
     if (!isCompositionInput) {
+      scheduleSecondaryEditIcon(lineIndex, next);
       setDraftLines((current) => current.map((line, index) => (index === lineIndex ? next : line)));
       return;
     }
@@ -1178,6 +1204,7 @@ export function App() {
     }
     const cleanedInserted = change.inserted.replace(/[a-z=-]+/gi, "");
     const cleanedNext = `${next.slice(0, change.start)}${cleanedInserted}${next.slice(change.end)}`;
+    scheduleSecondaryEditIcon(lineIndex, cleanedNext);
     setDraftLines((current) => current.map((line, index) => (index === lineIndex ? cleanedNext : line)));
     if (pinyin) {
       setQuery((current) => `${current.slice(0, queryCursor)}${pinyin}${current.slice(queryCursor)}`);
@@ -1466,9 +1493,10 @@ export function App() {
       const patchHistoryCount = translationPatchHistory[patchKey]?.length ?? 0;
       const needsSpace = segmentIndex > 0;
       const isCompleteSegment = isFinalTranslationSegment(segment) || lineIndex < draftLines.length - 1;
+      const isIdleEditableSegment = Boolean(idleSecondaryEditLines[lineIndex]);
       const iconLine = editIconLine ?? activeLine;
-      const translationReady = lineLanguage !== "en" || Boolean(playedTranslations[translationKey]);
-      const showEditButton = isCompleteSegment
+      const translationReady = lineLanguage !== "en" || Boolean(playedTranslations[translationKey]) || isIdleEditableSegment;
+      const showEditButton = (isCompleteSegment || isIdleEditableSegment)
         && lineIndex === iconLine
         && translationReady
         && !loadingSegments[segment]
