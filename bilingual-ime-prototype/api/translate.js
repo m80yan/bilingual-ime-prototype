@@ -2,7 +2,7 @@ import { getRelevantGlossary, phraseTranslations } from "./domain-glossary.js";
 
 const supportedLanguages = {
   en: "natural English",
-  ja: "natural Japanese",
+  ja: "natural Japanese (日本語)",
 };
 const translationStyleInstructions = {
   daily: "Style: daily. Use natural everyday wording, idiomatic phrasing, and conversational rhythm when appropriate. Prefer living expressions over stiff literal phrasing; for example, use idioms such as one-way ticket when they fit the meaning.",
@@ -65,6 +65,17 @@ function polishTranslation(text, language) {
 
 function hasChinese(text) {
   return /[\u3400-\u9fff]/.test(text);
+}
+
+function hasJapaneseKana(text) {
+  return /[\u3040-\u30ff\u31f0-\u31ff]/.test(text);
+}
+
+function isValidTranslationForLanguage(text, language) {
+  if (!text) return false;
+  if (language === "en") return !hasChinese(text);
+  if (language === "ja") return hasJapaneseKana(text) || (!/[A-Za-z]{3,}/.test(text) && hasChinese(text));
+  return true;
 }
 
 function uniqueList(items, limit) {
@@ -268,6 +279,9 @@ export default async function handler(request, response) {
     "Prefer everyday American English for daily English output. Keep professional UI/UX, product-design, military, automotive, device, movie, history, education, and business terms precise whenever those domains appear.",
     "Relevant domains include UI/UX design, product design, design systems, interaction design, visual design, cars, phones/devices, movies, history, daily life, and English learning.",
     "When translating to English, output English punctuation, avoid Chinese punctuation, preserve standard product spacing such as Mate 70 Pro, and do not repeat the same sentence.",
+    targetLanguage === "ja"
+      ? "Critical target-language rule: output Japanese only. Do not output English sentences, English explanations, romanization, or Chinese-only text. Use natural Japanese wording with Japanese kana where appropriate."
+      : "",
     mode === "final"
       ? "For completed English sentences, make omitted subjects explicit when needed, choose idiomatic domain wording over literal noun chains, use natural time expressions, and keep rhetorical or emotional force."
       : "For candidate words or unfinished fragments, keep the output short and literal enough to help selection.",
@@ -322,13 +336,21 @@ export default async function handler(request, response) {
     const mixedEnglishEntries = targetLanguage === "en"
       ? Object.entries(translations).filter(([, translation]) => hasChinese(translation))
       : [];
+    const nonJapaneseEntries = targetLanguage === "ja"
+      ? Object.entries(translations).filter(([, translation]) => !isValidTranslationForLanguage(translation, "ja"))
+      : [];
 
-    if (mixedEnglishEntries.length) {
+    if (mixedEnglishEntries.length || nonJapaneseEntries.length) {
+      const invalidEntries = targetLanguage === "en" ? mixedEnglishEntries : nonJapaneseEntries;
       const repairPrompt = [
-        "Repair these Simplified Chinese to English translations.",
-        "Every value must be fluent natural English only. Do not leave any Chinese characters in the output.",
+        targetLanguage === "en"
+          ? "Repair these Simplified Chinese to English translations."
+          : "Repair these Simplified Chinese to Japanese translations.",
+        targetLanguage === "en"
+          ? "Every value must be fluent natural English only. Do not leave any Chinese characters in the output."
+          : "Every value must be natural Japanese only. Do not output English sentences, romanization, or Chinese-only text. Use Japanese kana where appropriate.",
         "Return only a JSON object using the same original Chinese keys.",
-        JSON.stringify(Object.fromEntries(mixedEnglishEntries)),
+        JSON.stringify(Object.fromEntries(invalidEntries)),
       ].join("\n");
       const repairResponse = await fetch("https://api.openai.com/v1/responses", {
         method: "POST",
@@ -350,13 +372,14 @@ export default async function handler(request, response) {
           const repairResult = JSON.parse(repairRaw);
           translations = Object.fromEntries(Object.entries(translations).map(([text, translation]) => {
             const repaired = typeof repairResult[text] === "string" ? polishTranslation(repairResult[text], targetLanguage) : translation;
-            return [text, hasChinese(repaired) ? translation : repaired];
+            return [text, isValidTranslationForLanguage(repaired, targetLanguage) ? repaired : translation];
           }));
         } catch {
-          console.warn("English translation repair response could not be read.");
+          console.warn("Translation repair response could not be read.");
         }
       }
-      translations = Object.fromEntries(Object.entries(translations).filter(([, translation]) => !hasChinese(translation)));
+      translations = Object.fromEntries(Object.entries(translations)
+        .filter(([, translation]) => isValidTranslationForLanguage(translation, targetLanguage)));
     }
     return json(response, { translations: { ...localResults, ...translations } });
   } catch {

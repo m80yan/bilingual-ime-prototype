@@ -77,6 +77,21 @@ function isChineseText(text) {
   return /[\u3400-\u9fff]/.test(text);
 }
 
+function hasJapaneseKana(text) {
+  return /[\u3040-\u30ff\u31f0-\u31ff]/.test(text);
+}
+
+function isValidTranslationForLanguage(language, text) {
+  if (!text) return false;
+  if (language === "en") return !isChineseText(text);
+  if (language === "ja") return hasJapaneseKana(text) || (!/[A-Za-z]{3,}/.test(text) && isChineseText(text));
+  return true;
+}
+
+function firstValidTranslation(language, values) {
+  return values.find((value) => isValidTranslationForLanguage(language, value)) ?? null;
+}
+
 function splitChineseSegments(text) {
   if (!text) return [];
   const matches = text.match(/[^。！？!?]+[。！？!?]?/g) ?? [];
@@ -427,14 +442,16 @@ export function App() {
   const compositionLearning = useRef(null);
 
   function translationFor(zh, language, frozenKey = null) {
-    const exactTranslation = (frozenKey ? translations[frozenKey] : null)
-      ?? translationPatches[translationPatchKey(language, translationStyle, zh)]
-      ?? translations[translationCacheKey(language, translationStyle, zh, "final")]
-      ?? translations[translationCacheKey(language, translationStyle, zh)]
-      ?? translations[`${language}:${zh}`]
-      ?? userGlossaryTranslation(zh, language, userGlossary)
-      ?? localTranslations[zh]?.[language]
-      ?? (language === "en" && cedictTranslations[zh]?.length ? cedictTranslations[zh].join("; ") : null);
+    const exactTranslation = firstValidTranslation(language, [
+      frozenKey ? translations[frozenKey] : null,
+      translationPatches[translationPatchKey(language, translationStyle, zh)],
+      translations[translationCacheKey(language, translationStyle, zh, "final")],
+      translations[translationCacheKey(language, translationStyle, zh)],
+      translations[`${language}:${zh}`],
+      userGlossaryTranslation(zh, language, userGlossary),
+      localTranslations[zh]?.[language],
+      language === "en" && cedictTranslations[zh]?.length ? cedictTranslations[zh].join("; ") : null,
+    ]);
     if (exactTranslation) return exactTranslation;
 
     const { body, punctuation } = splitFinalPunctuation(zh);
@@ -449,13 +466,15 @@ export function App() {
   function punctuatedTranslationFromBase(zh, language, entries) {
     const { body, punctuation } = splitFinalPunctuation(zh);
     if (body === zh || !isChineseText(body)) return null;
-    const baseTranslation = entries[translationPatchKey(language, translationStyle, body)]
-      ?? entries[translationCacheKey(language, translationStyle, body, "final")]
-      ?? entries[translationCacheKey(language, translationStyle, body)]
-      ?? entries[`${language}:${body}`]
-      ?? userGlossaryTranslation(body, language, userGlossary)
-      ?? localTranslations[body]?.[language]
-      ?? (language === "en" && cedictTranslations[body]?.length ? cedictTranslations[body].join("; ") : null);
+    const baseTranslation = firstValidTranslation(language, [
+      entries[translationPatchKey(language, translationStyle, body)],
+      entries[translationCacheKey(language, translationStyle, body, "final")],
+      entries[translationCacheKey(language, translationStyle, body)],
+      entries[`${language}:${body}`],
+      userGlossaryTranslation(body, language, userGlossary),
+      localTranslations[body]?.[language],
+      language === "en" && cedictTranslations[body]?.length ? cedictTranslations[body].join("; ") : null,
+    ]);
     if (!baseTranslation || baseTranslation === "…" || baseTranslation === "翻訳中…") return null;
     return `${baseTranslation.replace(/[.!?。！？]$/, "")}${targetPunctuation(punctuation, language)}`;
   }
@@ -464,10 +483,12 @@ export function App() {
     if (isFinalTranslationSegment(zh)) return null;
     const punctuatedSource = ["。", "！", "？", "!", "?"].map((mark) => `${zh}${mark}`);
     const baseTranslation = punctuatedSource
-      .map((source) => entries[frozenFinalTranslationKey(language, lineIndex, segmentIndex, source)]
-        ?? entries[translationCacheKey(language, translationStyle, source, "final")]
-        ?? entries[translationCacheKey(language, translationStyle, source)]
-        ?? entries[`${language}:${source}`])
+      .map((source) => firstValidTranslation(language, [
+        entries[frozenFinalTranslationKey(language, lineIndex, segmentIndex, source)],
+        entries[translationCacheKey(language, translationStyle, source, "final")],
+        entries[translationCacheKey(language, translationStyle, source)],
+        entries[`${language}:${source}`],
+      ]))
       .find((translation) => translation && translation !== "…" && translation !== "翻訳中…");
     return baseTranslation ? baseTranslation.replace(/[.!?。！？]$/, "") : null;
   }
@@ -583,19 +604,21 @@ export function App() {
         && !(splitFinalPunctuation(zh).body !== zh && translationFor(splitFinalPunctuation(zh).body, language) !== (language === "en" ? "…" : "翻訳中…"))
         && !userGlossaryTranslation(zh, language, userGlossary)
         && !(language === "en" && cedictTranslations[zh]?.length)
-        && !translations[translationCacheKey(language, translationStyle, zh)])
+        && !isValidTranslationForLanguage(language, translations[translationCacheKey(language, translationStyle, zh)]))
       .map(({ zh, language }) => ({ zh, language }));
     const pendingFinalInstances = query ? [] : segmentInstances
       .filter((instance) => instance.isFinal)
       .filter(({ frozenKey }) => !translations[frozenKey]);
     const existingFinalEntries = pendingFinalInstances.flatMap(({ zh, language, frozenKey }) => {
       const existingTranslation = punctuatedTranslationFromBase(zh, language, translations)
-        ?? translations[translationCacheKey(language, translationStyle, zh, "final")]
-        ?? translations[translationCacheKey(language, translationStyle, zh)]
-        ?? translations[`${language}:${zh}`]
-        ?? userGlossaryTranslation(zh, language, userGlossary)
-        ?? localTranslations[zh]?.[language]
-        ?? (language === "en" && cedictTranslations[zh]?.length ? cedictTranslations[zh].join("; ") : null);
+        ?? firstValidTranslation(language, [
+          translations[translationCacheKey(language, translationStyle, zh, "final")],
+          translations[translationCacheKey(language, translationStyle, zh)],
+          translations[`${language}:${zh}`],
+          userGlossaryTranslation(zh, language, userGlossary),
+          localTranslations[zh]?.[language],
+          language === "en" && cedictTranslations[zh]?.length ? cedictTranslations[zh].join("; ") : null,
+        ]);
       return existingTranslation ? [[frozenKey, existingTranslation]] : [];
     });
     if (existingFinalEntries.length) {
