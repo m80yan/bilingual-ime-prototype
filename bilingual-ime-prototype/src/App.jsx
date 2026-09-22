@@ -1590,7 +1590,7 @@ export function App() {
         <h1 className="intro-title">
           <span>Smart Bilingual Notes</span>
         </h1>
-        <p>Turn your notes into a bilingual experience — AI-powered, cloud vocabulary.</p>
+        <p>Write in Chinese. Get polished English or Japanese below — instantly, with AI.</p>
       </section>
       <div className="ime-window-shadow" style={{ width: windowSize.width, height: windowSize.height }} aria-hidden="true" />
       <section className="ime-window" style={{ width: windowSize.width, height: windowSize.height }} aria-label="Chinese bilingual input tool">
